@@ -97,6 +97,20 @@
 3. `illustration-prompts.md`
    - 给人看的 prompt 包
 
+## 当前真实生图桥
+
+默认真实生图桥现在走：
+- `scripts/generate_with_minimax.py`
+- 底层接口：MiniMax 官方文生图接口 `POST https://api.minimaxi.com/v1/image_generation`
+- 默认模型：`image-01`
+
+说明：
+- 不再默认依赖火山方舟 Ark / Seedream
+- 优先读取环境变量：`MINIMAX_API_KEY`
+- 兼容读取：`ABAB_API_KEY`
+- 若环境变量未提供，会回退读取 `~/.openclaw/openclaw.json` 中的 `models.providers.minimax.apiKey`
+- `--dry-run` 时不会真正调生图 API
+
 ## 与发布链的边界
 
 这里不负责：

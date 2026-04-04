@@ -7,7 +7,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-NANO_BRIDGE = Path('/root/.openclaw/skills/material-to-graphic-report/scripts/generate_with_nano.py')
+MINIMAX_BRIDGE = Path(__file__).resolve().parent / 'generate_with_minimax.py'
 
 
 def load_plan(path: Path) -> dict:
@@ -87,7 +87,7 @@ def main() -> int:
 
     cmd = [
         sys.executable,
-        str(NANO_BRIDGE),
+        str(MINIMAX_BRIDGE),
         '--slots-file', str(slots_file),
         '--output-dir', str(output_dir),
     ]
@@ -110,3 +110,4 @@ def main() -> int:
 
 if __name__ == '__main__':
     raise SystemExit(main())
+

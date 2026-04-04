@@ -39,7 +39,7 @@
 这套东西会帮你完成 4 件事：
 
 1. 先整理出一篇适合你口吻的公众号正文
-2. 可选插入正文插图（0~1 张，默认不堆图）
+2. 可选完成插图规划、真实生图与正文回填
 3. 做一次发布前检查（含配图状态）
 4. 把文章送进微信公众号草稿箱
 
@@ -297,3 +297,9 @@ python3 scripts/check_wechat_connection.py
 3. 最后由 publisher 在发布前把多张正文插图合并进文章
 
 这样做的目的不是让 publisher 自己变成自动配图系统，而是让“插图”这件事变成可设计、可验证、可回填的上游步骤。
+
+当前默认真实生图桥已切到 **MiniMax 官方接口**：
+- 接口：`POST https://api.minimaxi.com/v1/image_generation`
+- 默认模型：`image-01`
+- 默认优先读取：`MINIMAX_API_KEY`
+- 若环境变量未提供，会回退读取 `~/.openclaw/openclaw.json` 中的 `models.providers.minimax.apiKey`
