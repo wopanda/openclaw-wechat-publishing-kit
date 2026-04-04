@@ -6,6 +6,7 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('--draft', required=True)
 parser.add_argument('--cover-image', default='')
+parser.add_argument('--illustration-plan', default='')
 parser.add_argument('--body-image', action='append', default=[])
 parser.add_argument('--image-state', default='')
 args = parser.parse_args()
@@ -17,6 +18,8 @@ cmd = [
 ]
 if args.cover_image:
     cmd.append(f'--cover-image "{args.cover_image}"')
+if args.illustration_plan:
+    cmd.append(f'--illustration-plan "{args.illustration_plan}"')
 for body_image in args.body_image:
     if str(body_image).strip():
         cmd.append(f'--body-image "{body_image}"')

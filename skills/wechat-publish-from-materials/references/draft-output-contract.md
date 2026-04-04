@@ -5,6 +5,8 @@
 2. reference-extract
 3. article-brief
 4. draft-handoff
+5. illustration-slots（可选）
+6. illustration-prompts（可选）
 
 ## 最终发布正文要求
 - 只保留干净正文

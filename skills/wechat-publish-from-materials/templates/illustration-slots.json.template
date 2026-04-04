@@ -1,0 +1,30 @@
+{
+  "article_title": "示例文章标题",
+  "slots": [
+    {
+      "slot_id": "cover_01",
+      "section": "开头",
+      "anchor": "标题下方",
+      "visual_type": "封面图",
+      "purpose": "建立主题感",
+      "source_paragraph": "文章开头的主题段落",
+      "scene_description": "分散信息流汇聚成一份被高亮的报告",
+      "prompt_basis": {
+        "article_claim": "这篇文章在讲如何把内容工作流结构化",
+        "why_image_here": "开头需要第一眼建立主题感",
+        "hero_scene": "信息流汇聚成结果卡片",
+        "supporting_elements": ["内容卡片", "流程箭头"],
+        "style_goal": "商务科技感、编辑型配图，不要广告风"
+      },
+      "prompt": {
+        "zh_brief": "封面图，表现信息从杂乱走向结构化。",
+        "main_en": "scattered information streams converging into a highlighted report card, from chaos to clarity, minimal digital workspace background, conveying structured content recomposition, clean business-tech illustration, premium editorial visual, strong focal point, negative space for title, blue-white-gray palette, 16:9",
+        "negative_en": "watermark, random text, logo errors, blurry, low resolution, messy composition, cluttered background, unrelated people, cheap commercial advertising style"
+      },
+      "aspect_ratio": "16:9",
+      "style": "clean business-tech editorial visual",
+      "caption": "把分散素材压成一份可读内容",
+      "image_state": "article-specific"
+    }
+  ]
+}

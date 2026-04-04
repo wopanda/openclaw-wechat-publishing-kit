@@ -53,7 +53,7 @@
 
 ## 正文图片规则
 
-当前版本支持两种正文插图路径：
+当前版本支持三种正文插图路径：
 
 1. 在 Markdown 里直接写图片（原有路径）
 2. 在发布参数里显式新增插图（新增路径）
@@ -63,6 +63,7 @@
      - 兼容旧值：`after-first-h2` / `before-signature`
    - `--max-body-images <N>`
    - `--strict-illustration`（需要“有图才发”时启用）
+3. 通过 `--illustration-plan` 让 publisher 在发布前自动把结构化插图计划合并进正文
 
 当前版本会尝试上传正文中的本地图片，并替换为微信可访问 URL。已实测支持：
 
@@ -127,3 +128,18 @@
 3. 核心发布器 `publish_markdown.py` 仍然不是写作器
 4. 插图能力只做“插入已有图片 + 状态显式化”，不负责自动生图
 5. 默认目标是“草稿箱”，不是正式发布
+
+
+## 插图计划（新增）
+
+如果上游已经生成了结构化插图计划，可通过：
+
+- `--illustration-plan /path/to/illustration-plan.generated.json`
+
+让发布链在发布前自动把多张正文插图合并进文章正文。
+
+要求：
+- JSON 中必须有 `slots` 数组
+- 正文插图应带 `local_path` / `image_path` / `image_url` 之一
+- 封面图可通过 `cover_01` 的本地路径自动作为封面候选
+- publisher 只负责“合并与上传”，不负责判断该不该生图、也不负责自动写 prompt

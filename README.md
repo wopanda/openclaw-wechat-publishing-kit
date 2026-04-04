@@ -75,9 +75,15 @@ bash install.sh
 ~/.openclaw/skills/
 ```
 
-默认只安装两部分：
+默认只安装三部分：
 - `wechat-publish-from-materials`
 - `wechat-draft-publisher`
+- `wechat-illustrated-publisher`
+
+现在已补上一个可选插图支路：
+- 文章 -> 插图计划 -> （可选）生图 -> 合并正文 -> 草稿箱
+- 也可直接跑一条串联脚本：`run_illustrated_publish_flow.py`
+- 如果你想把它当成一个单独 skill 用，也可以直接走：`wechat-illustrated-publisher`
 
 ### 第 3 步：改你的 persona
 
@@ -177,6 +183,23 @@ python3 ~/.openclaw/skills/wechat-draft-publisher/scripts/publish_markdown.py \
   --image-state article-specific
 ```
 
+如果你已经有“结构化插图计划 + 已生图结果”，也可以直接：
+```bash
+python3 ~/.openclaw/skills/wechat-draft-publisher/scripts/publish_markdown.py \
+  --check \
+  --file /path/to/article.md \
+  --illustration-plan /path/to/illustration-plan.generated.json
+```
+
+如果你想一条命令跑完“生成 plan → 复用已有 generated plan / publisher check”，可用：
+```bash
+python3 ~/.openclaw/skills/wechat-publish-from-materials/scripts/run_illustrated_publish_flow.py \
+  --article /path/to/article.md \
+  --existing-generated-plan /path/to/illustration-plan.generated.json \
+  --publisher-check \
+  --publisher-config ~/.openclaw/skills/wechat-draft-publisher/config/settings.json
+```
+
 ---
 
 ## 保留了什么
@@ -263,3 +286,14 @@ python3 scripts/check_wechat_connection.py
 - 不要把真实 `credentials.json` 提交到 git
 - 不要把真实 `settings.json` 提交到 git
 - 不要在 README、SKILL、示例里暴露 API Key / AppSecret
+
+
+## 新增：文章插图能力
+
+这套 kit 现在支持把“给文章配合适插图”拆成 3 步：
+
+1. 先为文章生成结构化插图计划
+2. 再按计划去生图（可 dry-run）
+3. 最后由 publisher 在发布前把多张正文插图合并进文章
+
+这样做的目的不是让 publisher 自己变成自动配图系统，而是让“插图”这件事变成可设计、可验证、可回填的上游步骤。

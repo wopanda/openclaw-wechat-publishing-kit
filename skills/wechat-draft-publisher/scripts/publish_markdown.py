@@ -23,6 +23,7 @@ from image_compressor import ImageCompressor
 from markdown_to_wechat import WeChatMarkdownFormatter, normalize_inline_images
 from signature_builder import build_signature_block
 from wechat_client import WeChatAPIError, WeChatClient
+from illustration_plan import load_illustration_plan, merge_illustrations_into_markdown, pick_cover_image_from_plan
 
 
 IMG_SRC_RE = re.compile(r'(<img[^>]+src=")(.+?)("[^>]*>)', flags=re.I)
@@ -41,6 +42,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--thumb-media-id", help="Explicit thumb media id")
     parser.add_argument("--cover-image", help="Cover image file path (optional)")
     parser.add_argument("--tail-image", help="Tail image file path appended to the end of article body")
+    parser.add_argument("--illustration-plan", help="Path to structured illustration plan JSON with generated image paths")
     parser.add_argument("--body-image", "--illustration", dest="body_image", action="append", help="Insert body illustration (repeatable, local path or URL)")
     parser.add_argument(
         "--body-image-placement", "--illustration-placement",
@@ -422,10 +424,33 @@ async def main() -> int:
         return fail(str(exc))
 
     article_file = Path(args.file_path).resolve() if args.file_path else None
-    asset_base_dir = Path(args.asset_base_dir).expanduser().resolve() if args.asset_base_dir else None
+    config_source = str(config.get("config_source", "") or "").strip()
+    config_base_dir = None
+    if config_source and config_source not in {"defaults", "unknown"}:
+        config_path = Path(config_source).expanduser()
+        config_base_dir = config_path if config_path.is_dir() else config_path.parent
+    inferred_asset_base_dir = None
+    if config_base_dir is not None:
+        inferred_asset_base_dir = config_base_dir.parent if config_base_dir.name == "config" else config_base_dir
+    asset_base_dir = Path(args.asset_base_dir).expanduser().resolve() if args.asset_base_dir else (inferred_asset_base_dir.resolve() if inferred_asset_base_dir else None)
     article_body = extract_main_body(markdown_text)
     title = extract_title(markdown_text, args.title)
     article_body = strip_leading_h1(article_body, expected_title=title)
+    illustration_report = {
+        "plan_used": False,
+        "slot_count": 0,
+        "body_slot_count": 0,
+        "merged_slot_ids": [],
+        "skipped_slot_ids": [],
+        "missing_image_slot_ids": [],
+        "unmatched_heading_slot_ids": [],
+    }
+    plan_cover_image = ""
+    if args.illustration_plan:
+        plan = load_illustration_plan(args.illustration_plan)
+        article_body, illustration_report = merge_illustrations_into_markdown(article_body, plan)
+        illustration_report["plan_path"] = str(Path(args.illustration_plan).expanduser().resolve())
+        plan_cover_image = pick_cover_image_from_plan(plan)
     author = detect_author(args.author, config.get("default_author"), markdown_text)
 
     cover_image_hint = (args.cover_image or "").strip()
@@ -438,6 +463,7 @@ async def main() -> int:
         for src in (cli_body_images + [item for item in cfg_body_images if item not in cli_body_images])
         if src not in {cover_image_hint, tail_image_hint}
     ]
+    plan_body_slot_count = int(illustration_report.get("body_slot_count", 0) or 0)
 
     raw_max_body_images = args.max_body_images if args.max_body_images is not None else config.get("max_body_images", 1)
     try:
@@ -475,13 +501,16 @@ async def main() -> int:
 
     explicit_thumb = (args.thumb_media_id or "").strip()
     default_thumb = (config.get("default_thumb_media_id", "") or "").strip()
-    cover_image = (args.cover_image or "").strip()
+    explicit_cover_image = (args.cover_image or "").strip()
+    cover_image = explicit_cover_image or plan_cover_image
 
     thumb_media_id = explicit_thumb
     if explicit_thumb:
         cover_strategy = "explicit-thumb-media-id"
-    elif cover_image:
+    elif explicit_cover_image:
         cover_strategy = "cover-image-upload"
+    elif plan_cover_image:
+        cover_strategy = "illustration-plan-cover-image"
     elif default_thumb:
         thumb_media_id = default_thumb
         cover_strategy = "default-thumb-media-id"
@@ -490,9 +519,17 @@ async def main() -> int:
 
     used_default_thumb = bool((not explicit_thumb) and (not cover_image) and default_thumb)
 
-    image_state = (args.image_state or config.get("default_image_state") or "").strip()
-    if image_state not in {"article-specific", "fallback-approved", "text-only", "blocked-by-image"}:
-        image_state = "article-specific" if inserted_body_images else "text-only"
+    explicit_image_state = (args.image_state or "").strip()
+    configured_image_state = (config.get("default_image_state") or "").strip()
+    image_state = explicit_image_state or configured_image_state
+    if explicit_image_state:
+        image_state = explicit_image_state
+    else:
+        has_planned_body_illustrations = plan_body_slot_count > 0
+        if has_planned_body_illustrations and configured_image_state in {"", "text-only"}:
+            image_state = "article-specific"
+        elif image_state not in {"article-specific", "fallback-approved", "text-only", "blocked-by-image"}:
+            image_state = "article-specific" if (inserted_body_images or has_planned_body_illustrations) else "text-only"
 
     image_analysis = classify_image_sources(article_body, article_file=article_file, asset_base_dir=asset_base_dir)
     preview_image_count = image_analysis["found_image_count"]
@@ -556,6 +593,7 @@ async def main() -> int:
             "signature_appended": bool(signature_info.get("text")),
             "tail_image_src": tail_image_src,
             "tail_image_appended": bool(tail_image_src),
+            "illustration_report": illustration_report,
             "image_analysis": {
                 "found_image_count": image_analysis["found_image_count"],
                 "local_image_count": image_analysis["local_image_count"],
@@ -641,11 +679,12 @@ async def main() -> int:
                 author=author,
                 cover_strategy=cover_strategy,
                 image_report=image_report,
+                illustration_report=illustration_report,
                 next_action=build_missing_cover_hint(image_report),
             )
-        return fail(str(exc), title=title, author=author)
+        return fail(str(exc), title=title, author=author, illustration_report=illustration_report)
     except Exception as exc:  # noqa: BLE001
-        return fail(f"发布时出现未预期错误: {exc}", title=title, author=author)
+        return fail(f"发布时出现未预期错误: {exc}", title=title, author=author, illustration_report=illustration_report)
     finally:
         await client.close()
 
@@ -675,6 +714,7 @@ async def main() -> int:
         "signature_appended": bool(signature_info.get("text")),
         "tail_image_src": tail_image_src,
         "tail_image_appended": bool(tail_image_src),
+        "illustration_report": illustration_report,
         "auto_cover_media_id": auto_cover_media_id,
         "image_report": image_report,
         "media_id": result.get("media_id", ""),

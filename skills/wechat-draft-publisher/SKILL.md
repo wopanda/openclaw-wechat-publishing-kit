@@ -28,10 +28,23 @@ description: 把已经写好的 Markdown 或整理好的公众号正文，推进
 
 - 需要最少信息时，直接调用 `scripts/publish_markdown.py`
 - 如有独立封面，显式传 `--cover-image`
+- 如已有结构化插图计划，传 `--illustration-plan` 让发布链在进草稿箱前自动合并正文插图
 - 如需加正文插图，可用 `--body-image` / `--illustration`（可重复）+ `--body-image-placement` / `--illustration-placement`
 - 如需显式声明本轮配图状态，可加 `--image-state` / `--illustration-state`
 - 如需先检查，先加 `--check`
 - 如需先做去 AI 味 / 润色，再用 `scripts/polish_and_publish.py`
+
+### 2. 插图计划 → 草稿箱
+
+如果上游已经生成了：
+- `illustration-plan.generated.json`
+
+则可以直接：
+- `publish_markdown.py --file article.md --illustration-plan illustration-plan.generated.json --check`
+- publisher 会自动：
+  1. 把正文插图回填到对应段落
+  2. 把封面 slot 作为封面候选
+  3. 输出 `illustration_report`
 
 ## 必读参考
 

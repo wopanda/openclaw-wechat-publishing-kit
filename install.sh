@@ -21,6 +21,7 @@ install_skill() {
 
 install_skill "wechat-publish-from-materials"
 install_skill "wechat-draft-publisher"
+install_skill "wechat-illustrated-publisher"
 
 USER_TPL_DIR="$TARGET_DIR/wechat-publish-from-materials/user-templates"
 mkdir -p "$USER_TPL_DIR"

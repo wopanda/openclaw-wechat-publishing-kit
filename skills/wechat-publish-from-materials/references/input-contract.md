@@ -10,6 +10,10 @@
 - `target_audience`
 - `need_feishu_preview`
 - `style_override`
+- `need_illustrations`
+- `illustration_density`（light / medium / heavy）
+- `image_style_hint`
+- `allow_chinese_text_in_image`
 
 ## persona_file 最少应包含
 1. 身份定位
@@ -27,3 +31,12 @@
 ## 注意
 - 参考内容默认只借结构与论证线索
 - 不默认接受“直接仿写某作者风格”
+
+
+## need_illustrations 为 yes 时
+- 先生成结构化插图计划，不直接从空白 prompt 临场发挥
+- 图片数量由文章结构决定，不预设固定 0~1 张
+- 每张图都应绑定一个明确图位与表达任务
+- 可选继续走：`build_illustration_slots.py` → `generate_article_illustrations.py` → `merge_illustrations_into_article.py` / `publish_markdown.py --illustration-plan`
+- 如果想一条命令串起来，可直接跑 `scripts/run_illustrated_publish_flow.py`
+- 参考 `references/illustration-prompt-contract.md`
