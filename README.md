@@ -47,8 +47,17 @@
 
 ### 第 1 步：克隆仓库
 
+你可以任选一个地址：
+
+#### Gitee
 ```bash
 git clone https://gitee.com/woipanda/openclaw-wechat-publishing-kit.git
+cd openclaw-wechat-publishing-kit
+```
+
+#### GitHub
+```bash
+git clone https://github.com/wopanda/openclaw-wechat-publishing-kit.git
 cd openclaw-wechat-publishing-kit
 ```
 
@@ -87,6 +96,10 @@ cp settings.example.json settings.json
 如果你想改公众号样式，也可以顺手改这两个：
 - `style_theme`
 - `accent_color`
+
+也可以理解成：
+- `style_theme` = 选一套整体风格
+- `accent_color` = 微调主色
 
 当前内置 3 套主题：
 - `wechat-pro`（默认绿色系）
@@ -182,12 +195,20 @@ python3 scripts/check_wechat_connection.py
 python3 scripts/check_wechat_connection.py
 ```
 
+### 3. 我已经有 Markdown，还要走前面那套吗？
+不用。  
+你可以直接把 Markdown 交给 `wechat-draft-publisher` 推草稿箱。
+
 ### 4. 我能改公众号样式吗？
 可以。
 
 在 `settings.json` 里改：
 - `style_theme`
 - `accent_color`
+
+你可以这样理解：
+- `style_theme` = 先选整体风格
+- `accent_color` = 再微调主色
 
 当前内置主题：
 - `wechat-pro`（默认绿色系）
