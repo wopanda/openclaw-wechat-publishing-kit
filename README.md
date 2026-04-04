@@ -79,12 +79,25 @@ wechat-publish-from-materials
 wechat-draft-publisher
 ```
 
+## 先说最稳的用法
+
+如果你是第一次接这套东西，直接这样走：
+
+1. `git clone` 仓库
+2. 跑 `bash install.sh --core`
+3. 改 `user-templates/persona.md`
+4. 填公众号配置
+5. 先跑连通性检查
+6. 再开始让它产出草稿
+
+> 不要第一次就上 `--full`。`--full` 是扩展链，适合你已经准备好项目上下文和图片桥之后再开。
+
 ## 快速开始
 
 ### 1) 克隆仓库
 
 ```bash
-git clone <your-gitee-repo-url>
+git clone https://gitee.com/woipanda/openclaw-wechat-publishing-kit.git
 cd openclaw-wechat-publishing-kit
 ```
 
@@ -174,6 +187,8 @@ export MATERIAL_TO_GRAPHIC_IMAGE_SCRIPT="/path/to/generate_image.py"
 export GEMINI_API_KEY="your-key"
 ```
 
+### 8) 开始用
+
 你可以直接对 OpenClaw 说：
 
 ```text
@@ -181,7 +196,9 @@ export GEMINI_API_KEY="your-key"
 读取我的 persona 文件，参考这篇内容，写成适合我口吻的公众号稿，检查后推到草稿箱。
 ```
 
-### 8) 最常见的 3 条用法
+## 最常见的 3 条用法
+
+### A. 只有主题，想推进成公众号稿
 - 用 `wechat-publish-from-materials`
 - 它会先收口个人信息和主题，再推进内容前链
 
@@ -246,6 +263,12 @@ python3 scripts/publish_markdown.py --check --input <your-article.md>
 - 不要把真实 `credentials.json` 提交到 git
 - 不要把真实 `settings.json` 提交到 git
 - 不要在 README、SKILL、示例里暴露 API Key / AppSecret
+
+## 验收与演示文档
+
+- `docs/fresh-clone-validation.md`
+- `docs/demo-walkthrough.md`
+- `docs/hardening-notes.md`
 
 ## 当前最稳妥的对外口径
 
