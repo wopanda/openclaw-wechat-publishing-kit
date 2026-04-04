@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Generate slot-based images for material-to-graphic-report via nano-banana-pro.
+"""Generate slot-based images for material-to-graphic-report via an external image bridge.
 
-This script is the default real-image execution bridge for `material-to-graphic-report`.
-It reads slot-based image requests, then calls the local nano-banana-pro skill script
-with the correct image model (`gemini-3-pro-image-preview`).
+This script no longer hardcodes a local skill path. It resolves the real image generator
+from env var `MATERIAL_TO_GRAPHIC_IMAGE_SCRIPT`, and keeps the bridge optional.
 """
 import argparse
 import json
@@ -14,7 +13,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-NANO_SCRIPT = Path('/root/.openclaw/skills/nano-banana-pro-2/scripts/generate_image.py')
+ENV_IMAGE_SCRIPT = 'MATERIAL_TO_GRAPHIC_IMAGE_SCRIPT'
 DEFAULT_BASE_URL = 'https://api.huandutech.com'
 DEFAULT_MODEL = 'gemini-3-pro-image-preview'
 
@@ -56,7 +55,14 @@ def build_prompt(slot: dict[str, Any]) -> str:
     return f'{title}，{purpose}，{visual_type}，{scene}，{style}，{aspect}'.strip('， ')
 
 
-def run_one(slot: dict[str, Any], output_dir: Path, model: str, base_url: str) -> dict[str, Any]:
+def resolve_image_script() -> Path | None:
+    script = os.environ.get(ENV_IMAGE_SCRIPT, '').strip()
+    if not script:
+        return None
+    return Path(script).expanduser().resolve()
+
+
+def run_one(slot: dict[str, Any], output_dir: Path, model: str, base_url: str, image_script: Path) -> dict[str, Any]:
     slot_id = slot['slot_id']
     filename = output_dir / f"{slugify(slot_id)}.png"
     prompt = build_prompt(slot)
@@ -64,7 +70,7 @@ def run_one(slot: dict[str, Any], output_dir: Path, model: str, base_url: str) -
 
     cmd = [
         sys.executable,
-        str(NANO_SCRIPT),
+        str(image_script),
         '--prompt', prompt,
         '--filename', str(filename),
         '--resolution', resolution,
@@ -99,23 +105,26 @@ def run_one(slot: dict[str, Any], output_dir: Path, model: str, base_url: str) -
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Generate slot-based images via nano-banana-pro')
+    parser = argparse.ArgumentParser(description='Generate slot-based images via external image bridge')
     parser.add_argument('--slots-file', required=True, help='JSON file following image-generation-input-contract.md')
     parser.add_argument('--output-dir', required=True, help='Directory for generated images')
     parser.add_argument('--model', default=DEFAULT_MODEL)
     parser.add_argument('--base-url', default=os.environ.get('GOOGLE_GEMINI_BASE_URL', DEFAULT_BASE_URL))
     args = parser.parse_args()
 
-    if not NANO_SCRIPT.exists():
-        raise FileNotFoundError(f'nano-banana-pro script not found: {NANO_SCRIPT}')
+    image_script = resolve_image_script()
+    if not image_script or not image_script.exists():
+        raise FileNotFoundError(
+            'missing image bridge script; set MATERIAL_TO_GRAPHIC_IMAGE_SCRIPT to a local generate_image.py path'
+        )
     if not os.environ.get('GEMINI_API_KEY'):
-        raise RuntimeError('缺少 GEMINI_API_KEY，无法调用 nano-banana-pro 生图')
+        raise RuntimeError('缺少 GEMINI_API_KEY，无法调用外部生图桥')
 
     slots = load_slots(Path(args.slots_file))
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    results = [run_one(slot, output_dir, args.model, args.base_url) for slot in slots]
+    results = [run_one(slot, output_dir, args.model, args.base_url, image_script) for slot in slots]
     print(json.dumps({'results': results}, ensure_ascii=False, indent=2))
 
 

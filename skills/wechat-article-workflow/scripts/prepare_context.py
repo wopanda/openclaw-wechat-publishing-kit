@@ -12,30 +12,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-PROJECT_ROOT = Path('/root/obsidian-vault/Projects/Active/微信公众号文章自动化发布')
-SKILL_ROOT = Path('/root/.openclaw/skills/wechat-article-workflow')
+from path_config import resolve_output_dir, resolve_project_root, resolve_skill_root
 
-STAGE_FILES = {
-    'stage1_core': [
-        PROJECT_ROOT / '00-主线与流程/17-默认执行链-v2.md',
-        PROJECT_ROOT / '02-个人上下文库/01-主线与价值观.md',
-        PROJECT_ROOT / '02-个人上下文库/04-表达偏好.md',
-        PROJECT_ROOT / '02-个人上下文库/05-人物定位.md',
-    ],
-    'stage2_samples': [
-        PROJECT_ROOT / '03-样板库/02-外部样板/01-外部样板使用地图-v1.md',
-    ],
-    'stage3_evidence': [
-        PROJECT_ROOT / '02-个人上下文库/02-真实项目经历.md',
-        PROJECT_ROOT / '02-个人上下文库/03-失败教训.md',
-    ],
-    'stage4_finish': [
-        PROJECT_ROOT / '00-主线与流程/16-公众号内容质量门-v1.md',
-        PROJECT_ROOT / '00-主线与流程/12-配图状态机-v1.md',
-        PROJECT_ROOT / '00-主线与流程/13-飞书预览稿到微信发布稿转换规则-v1.md',
-        PROJECT_ROOT / '00-主线与流程/14-草稿箱后验收清单-v1.md',
-    ],
-}
+SKILL_ROOT = resolve_skill_root(__file__)
 
 RUN_RECORD_HINTS = ['观点卡', '证据包', '样例说明', '成稿候选']
 STAGE_SEQUENCE = ['stage1_core', 'stage2_samples', 'stage3_evidence', 'stage4_finish']
@@ -45,6 +24,30 @@ STAGE_PURPOSE = {
     'stage3_evidence': '起草前再补真实经历、失败教训、观点卡与证据包。',
     'stage4_finish': '进入预览 / 发布前，再补质量门、排版与验收规则。',
 }
+
+
+def build_stage_files(project_root: Path) -> dict[str, list[Path]]:
+    return {
+        'stage1_core': [
+            project_root / '00-主线与流程/17-默认执行链-v2.md',
+            project_root / '02-个人上下文库/01-主线与价值观.md',
+            project_root / '02-个人上下文库/04-表达偏好.md',
+            project_root / '02-个人上下文库/05-人物定位.md',
+        ],
+        'stage2_samples': [
+            project_root / '03-样板库/02-外部样板/01-外部样板使用地图-v1.md',
+        ],
+        'stage3_evidence': [
+            project_root / '02-个人上下文库/02-真实项目经历.md',
+            project_root / '02-个人上下文库/03-失败教训.md',
+        ],
+        'stage4_finish': [
+            project_root / '00-主线与流程/16-公众号内容质量门-v1.md',
+            project_root / '00-主线与流程/12-配图状态机-v1.md',
+            project_root / '00-主线与流程/13-飞书预览稿到微信发布稿转换规则-v1.md',
+            project_root / '00-主线与流程/14-草稿箱后验收清单-v1.md',
+        ],
+    }
 
 
 def read_text(path: Path) -> str:
@@ -158,10 +161,14 @@ def prepare_context_bundle(
     input_text: str = '',
     input_file: str = '',
     record_dir: str = '',
-    output_dir: str = str(SKILL_ROOT / 'output'),
+    output_dir: str = '',
+    project_root: str = '',
 ) -> dict[str, Any]:
-    out_dir = Path(output_dir)
+    out_dir = resolve_output_dir(__file__, output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
+
+    project_root_path = resolve_project_root(__file__, project_root)
+    stage_files = build_stage_files(project_root_path)
 
     loaded_input_text = load_input_text(input_text=input_text, input_file=input_file)
     record_files = collect_run_records(Path(record_dir)) if record_dir else []
@@ -184,7 +191,7 @@ def prepare_context_bundle(
                 topic=topic,
                 input_mode=input_mode,
                 loaded_input_text=loaded_input_text,
-                files=STAGE_FILES[stage],
+                files=stage_files[stage],
                 record_files=extra_records,
             ),
             encoding='utf-8',
@@ -192,7 +199,7 @@ def prepare_context_bundle(
         progressive_context[stage] = {
             'path': str(stage_path),
             'purpose': STAGE_PURPOSE[stage],
-            'files': [str(p) for p in STAGE_FILES[stage]] + [str(p) for p in extra_records],
+            'files': [str(p) for p in stage_files[stage]] + [str(p) for p in extra_records],
         }
 
     context_file.write_text(
@@ -214,6 +221,7 @@ def prepare_context_bundle(
         'angle_brief_template': str(angle_tpl),
         'record_dir': record_dir,
         'record_files': [str(p) for p in record_files],
+        'project_root': str(project_root_path),
         'progressive_context': progressive_context,
         'stage_sequence': STAGE_SEQUENCE,
         'current_context_stage': 'stage1_core',
@@ -236,7 +244,8 @@ def main():
     parser.add_argument('--input-text', default='')
     parser.add_argument('--input-file', default='')
     parser.add_argument('--record-dir', default='')
-    parser.add_argument('--output-dir', default=str(SKILL_ROOT / 'output'))
+    parser.add_argument('--output-dir', default='')
+    parser.add_argument('--project-root', default='')
     args = parser.parse_args()
 
     manifest = prepare_context_bundle(
@@ -246,6 +255,7 @@ def main():
         input_file=args.input_file,
         record_dir=args.record_dir,
         output_dir=args.output_dir,
+        project_root=args.project_root,
     )
     print(manifest['context_bundle'])
     print(manifest['manifest_file'])

@@ -55,20 +55,28 @@
 - 不承诺直接正式群发
 - 不承诺自动完成事实核验、观点正确性与合规审核
 
-## 默认主链
+## 默认主链（稳定）
 
 ```text
 个人信息文件 + 参考内容 + 可选主题
     ↓
 wechat-publish-from-materials
     ↓
-wechat-article-workflow
+wechat-draft-publisher
+    ↓
+微信公众号草稿箱
+```
+
+## 扩展链（可选）
+
+```text
+wechat-publish-from-materials
+    ↓
+(可选) wechat-article-workflow
     ↓
 (可选) material-to-graphic-report
     ↓
 wechat-draft-publisher
-    ↓
-微信公众号草稿箱
 ```
 
 ## 快速开始
@@ -83,23 +91,34 @@ cd openclaw-wechat-publishing-kit
 ### 2) 安装到 OpenClaw skills 目录
 
 ```bash
-bash install.sh
+# 推荐：稳定核心链（默认）
+bash install.sh --core
+
+# 可选：安装完整链（含预览/编排扩展）
+bash install.sh --full
 ```
 
-默认会把这些目录复制到：
+`--core` 会安装：
 - `~/.openclaw/skills/wechat-publish-from-materials`
+- `~/.openclaw/skills/wechat-draft-publisher`
+
+`--full` 额外安装：
 - `~/.openclaw/skills/wechat-article-workflow`
 - `~/.openclaw/skills/material-to-graphic-report`
-- `~/.openclaw/skills/wechat-draft-publisher`
+
+安装后，`wechat-publish-from-materials/user-templates/` 会自动带上可编辑模板。
 
 ### 3) 替换你的模板
 
+安装脚本会把模板同步到：
+- `~/.openclaw/skills/wechat-publish-from-materials/user-templates/`
+
 至少先改：
-- `templates/persona.md`
+- `persona.md`
 
 推荐再改：
-- `templates/writing-guide.md`
-- `templates/title-formulas.md`
+- `writing-guide.md`
+- `title-formulas.md`
 
 ### 4) 填微信发布配置
 
@@ -117,14 +136,43 @@ cp settings.example.json settings.json
 - 作者名
 - 输出目录
 
-### 5) 做最小连通性检查
+### 5) 如果你要启用完整链，再补项目根目录
+
+`wechat-article-workflow` 不再假设你的项目必须位于固定绝对路径。
+
+你现在有两种方式：
+
+#### 方式 A：直接用内置模板起步
+安装后可在这里找到示例骨架：
+- `~/.openclaw/skills/wechat-article-workflow/project-template/`
+
+#### 方式 B：指定你自己的项目目录
+```bash
+export WECHAT_ARTICLE_PROJECT_ROOT="/your/project/path"
+```
+
+或者在脚本调用时传：
+```bash
+--project-root /your/project/path
+```
+
+### 6) 做微信连通性检查
 
 ```bash
 cd ~/.openclaw/skills/wechat-draft-publisher
 python3 scripts/check_wechat_connection.py
 ```
 
-### 6) 开始用
+### 7) 如果你要启用真实生图，再补图片桥
+
+`material-to-graphic-report` 不再硬编码本地图片 skill 路径。
+
+请通过环境变量提供你自己的桥脚本：
+
+```bash
+export MATERIAL_TO_GRAPHIC_IMAGE_SCRIPT="/path/to/generate_image.py"
+export GEMINI_API_KEY="your-key"
+```
 
 你可以直接对 OpenClaw 说：
 
@@ -133,9 +181,7 @@ python3 scripts/check_wechat_connection.py
 读取我的 persona 文件，参考这篇内容，写成适合我口吻的公众号稿，检查后推到草稿箱。
 ```
 
-## 最常见的 3 条用法
-
-### A. 只有主题，想推进成公众号稿
+### 8) 最常见的 3 条用法
 - 用 `wechat-publish-from-materials`
 - 它会先收口个人信息和主题，再推进内容前链
 
@@ -155,10 +201,10 @@ openclaw-wechat-publishing-kit/
 ├── LICENSE
 ├── templates/
 ├── skills/
-│   ├── wechat-publish-from-materials/
-│   ├── wechat-article-workflow/
-│   ├── material-to-graphic-report/
-│   └── wechat-draft-publisher/
+│   ├── wechat-publish-from-materials/   # 主入口
+│   ├── wechat-draft-publisher/          # 稳定发布链
+│   ├── wechat-article-workflow/         # 可选扩展
+│   └── material-to-graphic-report/      # 可选扩展
 └── docs/
 ```
 
@@ -166,6 +212,7 @@ openclaw-wechat-publishing-kit/
 
 ### 首版建议承诺
 - 材料 + 人设 + 参考内容 → 成稿 Markdown → 草稿箱
+- 先走 core 稳定链，再按需叠加扩展
 - 飞书预览为可选，不做硬依赖
 - 专属生图为可选，不做首版承诺
 

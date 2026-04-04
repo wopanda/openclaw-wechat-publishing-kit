@@ -12,9 +12,20 @@ from pathlib import Path
 from typing import Any
 
 from prepare_context import prepare_context_bundle
+from path_config import resolve_output_dir, resolve_project_root, resolve_skill_root
 
-SKILL_ROOT = Path('/root/.openclaw/skills/wechat-article-workflow')
-PROJECT_ROOT = Path('/root/obsidian-vault/Projects/Active/微信公众号文章自动化发布')
+SKILL_ROOT = resolve_skill_root(__file__)
+PROJECT_ROOT = resolve_project_root(__file__)
+
+
+def set_project_root(project_root: Path) -> None:
+    global PROJECT_ROOT, MAINLINE_FILE, PROJECTS_FILE, FAILURES_FILE, STYLE_FILE, ROLE_FILE
+    PROJECT_ROOT = project_root
+    MAINLINE_FILE = PROJECT_ROOT / '02-个人上下文库/01-主线与价值观.md'
+    PROJECTS_FILE = PROJECT_ROOT / '02-个人上下文库/02-真实项目经历.md'
+    FAILURES_FILE = PROJECT_ROOT / '02-个人上下文库/03-失败教训.md'
+    STYLE_FILE = PROJECT_ROOT / '02-个人上下文库/04-表达偏好.md'
+    ROLE_FILE = PROJECT_ROOT / '02-个人上下文库/05-人物定位.md'
 
 MAINLINE_FILE = PROJECT_ROOT / '02-个人上下文库/01-主线与价值观.md'
 PROJECTS_FILE = PROJECT_ROOT / '02-个人上下文库/02-真实项目经历.md'
@@ -336,8 +347,10 @@ def main():
     parser.add_argument('--input-text', default='')
     parser.add_argument('--input-file', default='')
     parser.add_argument('--record-dir', default='')
-    parser.add_argument('--output-dir', default=str(SKILL_ROOT / 'output'))
+    parser.add_argument('--project-root', default='')
+    parser.add_argument('--output-dir', default='')
     args = parser.parse_args()
+    set_project_root(resolve_project_root(__file__, args.project_root))
 
     manifest_path: Path
     if args.manifest:
@@ -353,6 +366,7 @@ def main():
             input_file=args.input_file,
             record_dir=args.record_dir,
             output_dir=args.output_dir,
+            project_root=args.project_root,
         )
         manifest_path = Path(prepared['manifest_file'])
         manifest = load_json(manifest_path)
@@ -361,7 +375,7 @@ def main():
     if not stages.get('topic_pick') or not stages.get('angle_menu'):
         raise ValueError('请先运行 prepare_briefs.py 生成选题卡和观点菜单')
 
-    output_dir = Path(args.output_dir)
+    output_dir = resolve_output_dir(__file__, args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     base = slugify(manifest.get('topic') or manifest.get('input_mode') or 'workflow')

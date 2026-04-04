@@ -1,7 +1,7 @@
-# Nano Banana Integration
+# External Image Bridge Integration
 
 ## 目标
-把 `material-to-graphic-report` 的真实生图执行默认接到当前环境里已实测可用的 `nano-banana-pro`。
+把 `material-to-graphic-report` 的真实生图执行接到**用户自己提供的图片桥脚本**，而不是写死某个本地 skill 路径。
 
 ## 当前默认接法
 当流程进入 `generate-if-available` 时：
@@ -9,26 +9,27 @@
 2. 再调用：
    - `scripts/generate_with_nano.py`
 3. 该脚本内部会转调：
-   - `/root/.openclaw/skills/nano-banana-pro-2/scripts/generate_image.py`
+   - 环境变量 `MATERIAL_TO_GRAPHIC_IMAGE_SCRIPT` 指向的本地脚本
 
 ## 固定模型
 - 默认图片模型：`gemini-3-pro-image-preview`
 - 默认 Base URL：`https://api.huandutech.com`
 
-## 为什么显式锁这个模型
-当前环境变量里的默认：
-- `GEMINI_MODEL=gemini-3.1-pro-preview`
+## 为什么这样改
+因为“可交付版”不能假设每个用户机器上都有固定的本地图片 skill 安装目录。
 
-它不适合这条图片输出链，容易报：
-- `Multi-modal output is not supported.`
-
-所以接入时必须显式覆盖成图片模型。
+所以现在改成：
+- 仓库不绑定具体图片 skill 安装路径
+- 用户自己在运行环境里提供图片桥
 
 ## 最小调用示例
 ```bash
+export MATERIAL_TO_GRAPHIC_IMAGE_SCRIPT="/path/to/generate_image.py"
+export GEMINI_API_KEY="your-key"
+
 python3 scripts/generate_with_nano.py \
   --slots-file /path/to/slots.json \
-  --output-dir /tmp/openclaw/material_to_graphic_images
+  --output-dir /tmp/material_to_graphic_images
 ```
 
 ## 返回结果
@@ -38,5 +39,3 @@ python3 scripts/generate_with_nano.py \
 - `local_path` / `reason`
 - `model`
 - `base_url`
-
-后续再按 `image-replacement-protocol.md` 回填到飞书文档。
