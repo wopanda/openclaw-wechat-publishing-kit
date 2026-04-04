@@ -62,6 +62,10 @@ def setup_minimal_config() -> tuple[dict, dict]:
         "weixin_api_base": "https://api.weixin.qq.com",
         "format_markdown": True,
         "request_timeout_seconds": 30,
+        "default_body_images": [],
+        "max_body_images": 1,
+        "body_image_placement": "before-signature",
+        "default_image_state": "text-only",
     }
     return credentials, settings
 

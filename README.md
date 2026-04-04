@@ -36,11 +36,12 @@
 
 ## 你会得到什么
 
-这套东西会帮你完成 3 件事：
+这套东西会帮你完成 4 件事：
 
 1. 先整理出一篇适合你口吻的公众号正文
-2. 做一次发布前检查
-3. 把文章送进微信公众号草稿箱
+2. 可选插入正文插图（0~1 张，默认不堆图）
+3. 做一次发布前检查（含配图状态）
+4. 把文章送进微信公众号草稿箱
 
 ---
 
@@ -104,6 +105,12 @@ cp settings.example.json settings.json
 - `style_theme`
 - `accent_color`
 
+如果你想启用默认正文插图策略，也可改：
+- `default_body_images`（数组）
+- `max_body_images`（默认 1）
+- `body_image_placement`（推荐 `after-intro` 或 `before-ending`；兼容旧值 `after-first-h2` / `before-signature`）
+- `default_image_state`（`text-only` / `fallback-approved` 等）
+
 也可以理解成：
 - `style_theme` = 选一套整体风格
 - `accent_color` = 微调主色
@@ -159,6 +166,17 @@ python3 scripts/check_wechat_connection.py
 那你可以跳过前面的整理，直接用：
 - `wechat-draft-publisher`
 
+示例（加 1 张正文图）：
+```bash
+python3 ~/.openclaw/skills/wechat-draft-publisher/scripts/publish_markdown.py \
+  --check \
+  --file /path/to/article.md \
+  --cover-image /path/to/cover.jpg \
+  --body-image /path/to/body.jpg \
+  --body-image-placement after-intro \
+  --image-state article-specific
+```
+
 ---
 
 ## 保留了什么
@@ -169,6 +187,13 @@ python3 scripts/check_wechat_connection.py
 - `--thumb-media-id`
 - `default_thumb_media_id`
 - 自动封面策略
+
+### 正文插图能力已补齐
+支持：
+- `--body-image`（可重复）
+- `--body-image-placement` / `--illustration-placement`
+- `--max-body-images`
+- `--image-state`（article-specific / fallback-approved / text-only / blocked-by-image）
 
 ### 公众号样式还在
 当前内置主题：

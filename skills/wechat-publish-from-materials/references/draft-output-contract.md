@@ -20,3 +20,4 @@
 - 作者字段可补
 - 正文结构适合公众号阅读
 - 若无专属图片，也可接受 text-only / fallback-cover
+- 若要新增插图，交接到发布器时显式传 `--body-image` 与 `--image-state`

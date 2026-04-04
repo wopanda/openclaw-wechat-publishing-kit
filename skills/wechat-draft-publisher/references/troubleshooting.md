@@ -61,7 +61,7 @@
 
 ---
 
-## 6. 正文图片显示异常
+## 6. 正文图片显示异常 / 插图未生效
 
 现象：
 - 图片没显示
@@ -72,12 +72,25 @@
 2. 再检查图片文件是否真实存在
 3. 公网 URL 图片可直接保留
 4. 本地图片推荐使用相对文章文件的稳定路径
+5. 如果用的是新增插图参数，检查 `--body-image`、`--body-image-placement`、`--max-body-images`
+6. 先用 `--check` 看 `inserted_body_images` 是否符合预期
 
 ---
 
-## 7. 建议的最稳调试顺序
+## 7. 配图状态卡住（blocked-by-image）
+
+现象：
+- 返回错误：`当前配图状态为 blocked-by-image，按门禁不继续推进草稿箱`
+
+处理：
+1. 先修复专属配图，再用 `--image-state article-specific` 重试
+2. 或明确降级：`--image-state text-only` / `fallback-approved`
+
+---
+
+## 8. 建议的最稳调试顺序
 
 1. 先跑 `--check`
-2. 再看 `cover_strategy`
-3. 再看 `body_image_count`
+2. 看 `cover_strategy` + `image_state`
+3. 再看 `body_image_count` + `inserted_body_images`
 4. 真发失败时，再看 `image_report` 和 `next_action`

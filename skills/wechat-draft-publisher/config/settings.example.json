@@ -9,6 +9,10 @@
   "format_markdown": true,
   "request_timeout_seconds": 30,
   "upload_remote_images": true,
+  "default_body_images": [],
+  "max_body_images": 1,
+  "body_image_placement": "before-signature",
+  "default_image_state": "text-only",
   "polish": {
     "enabled": false,
     "command": "python3 scripts/polish_builtin.py --input {input} --output {output}",

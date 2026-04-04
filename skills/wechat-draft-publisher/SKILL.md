@@ -1,6 +1,6 @@
 ---
 name: wechat-draft-publisher
-description: 把已经写好的 Markdown 或整理好的公众号正文，推进到微信公众号草稿箱的发布 Skill。适用于：公众号发布前的格式整理、图片处理、封面策略、预检、草稿箱投递。不要用于：选题、搜集资料、生成正文、起标题、自动配图。这个极简交付版只保留“正文 → 草稿箱”的发布链。
+description: 把已经写好的 Markdown 或整理好的公众号正文，推进到微信公众号草稿箱的发布 Skill。适用于：公众号发布前的格式整理、图片处理、封面策略、插图插入、配图状态回报、预检、草稿箱投递。不要用于：选题、搜集资料、生成正文、起标题、自动生图。这个极简交付版只保留“正文 → 草稿箱”的发布链。
 ---
 
 # WeChat Draft Publisher
@@ -28,6 +28,8 @@ description: 把已经写好的 Markdown 或整理好的公众号正文，推进
 
 - 需要最少信息时，直接调用 `scripts/publish_markdown.py`
 - 如有独立封面，显式传 `--cover-image`
+- 如需加正文插图，可用 `--body-image` / `--illustration`（可重复）+ `--body-image-placement` / `--illustration-placement`
+- 如需显式声明本轮配图状态，可加 `--image-state` / `--illustration-state`
 - 如需先检查，先加 `--check`
 - 如需先做去 AI 味 / 润色，再用 `scripts/polish_and_publish.py`
 
@@ -43,7 +45,7 @@ description: 把已经写好的 Markdown 或整理好的公众号正文，推进
 
 1. 运行 `scripts/check_wechat_connection.py` 检查 AppID / AppSecret / 网络连通性
 2. 运行 `scripts/publish_markdown.py --check ...`
-3. 看 `cover_strategy`、`body_image_count`、`next_action`
+3. 看 `cover_strategy`、`body_image_count`、`image_state`、`next_action`
 4. 在上层前台显式说明：
    - 当前模式：快速草稿模式 / 正式成品模式
    - 当前配图状态：article-specific / fallback-approved / text-only / blocked-by-image
@@ -60,10 +62,12 @@ description: 把已经写好的 Markdown 或整理好的公众号正文，推进
 - `cover_strategy`
 - `media_id` / `draft_id`
 - `image_report`
+- `image_state`
+- `inserted_body_images`
 - `next_action`（如失败）
 
 ## 禁止混写
 
-- 不把“搜集资料、生成正文、标题候选、自动配图”写进本 Skill 的能力口径。
+- 不把“搜集资料、生成正文、标题候选、自动生图”写进本 Skill 的能力口径。
 - 可以接润色模块，但润色模块属于发布前上游步骤，不属于本 Skill 本体。
 - 不把“草稿箱”写成“正式群发”。

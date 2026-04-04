@@ -41,6 +41,21 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--thumb-media-id", help="Explicit thumb media id")
     parser.add_argument("--cover-image", help="Cover image file path (optional)")
     parser.add_argument("--tail-image", help="Tail image file path appended to the end of article body")
+    parser.add_argument("--body-image", "--illustration", dest="body_image", action="append", help="Insert body illustration (repeatable, local path or URL)")
+    parser.add_argument(
+        "--body-image-placement", "--illustration-placement",
+        dest="body_image_placement",
+        choices=["after-intro", "before-ending", "after-first-h2", "before-signature"],
+        help="Where to insert body illustrations (default: before-ending)",
+    )
+    parser.add_argument("--max-body-images", type=int, help="Maximum number of inserted body images")
+    parser.add_argument(
+        "--image-state", "--illustration-state",
+        dest="image_state",
+        choices=["article-specific", "fallback-approved", "text-only", "blocked-by-image"],
+        help="Explicit image state reported in output",
+    )
+    parser.add_argument("--strict-illustration", action="store_true", help="Fail fast when image_state and body image availability conflict")
     parser.add_argument("--config", help="Path to config settings JSON or config directory")
     parser.add_argument("--asset-base-dir", help="Base directory for resolving relative local images")
     parser.add_argument("--style-theme", help="Override style theme (wechat-pro|cyan-clean|slate-blue)")
@@ -84,6 +99,86 @@ def append_tail_image(markdown_body: str, tail_image_path: str | None) -> tuple[
         return markdown_body, src
     body = markdown_body.rstrip()
     return f"{body}\n\n![]({src})\n", src
+
+
+def normalize_image_list(values: object) -> list[str]:
+    if values is None:
+        return []
+    if isinstance(values, str):
+        values = [values]
+    if not isinstance(values, list):
+        return []
+
+    normalized: list[str] = []
+    seen = set()
+    for item in values:
+        src = str(item).strip()
+        if not src or src in seen:
+            continue
+        seen.add(src)
+        normalized.append(src)
+    return normalized
+
+
+def _insert_after_first_h2(markdown_body: str, image_block: str) -> str:
+    lines = markdown_body.splitlines()
+    for index, line in enumerate(lines):
+        if line.strip().startswith("## "):
+            insert_at = index + 1
+            lines.insert(insert_at, "")
+            lines.insert(insert_at + 1, image_block)
+            lines.insert(insert_at + 2, "")
+            return "\n".join(lines).strip() + "\n"
+    body = markdown_body.rstrip()
+    return f"{body}\n\n{image_block}\n"
+
+
+def _insert_after_intro(markdown_body: str, image_block: str) -> str:
+    blocks = markdown_body.strip().split("\n\n")
+    if not blocks:
+        return image_block.strip() + "\n"
+
+    intro_index = None
+    for index, block in enumerate(blocks):
+        stripped = block.strip()
+        if not stripped:
+            continue
+        if stripped.startswith("#") and "\n" not in stripped:
+            continue
+        intro_index = index
+        break
+
+    if intro_index is None:
+        intro_index = min(len(blocks) - 1, 0)
+
+    insert_at = intro_index + 1
+    blocks.insert(insert_at, image_block.strip())
+    return "\n\n".join(part.strip("\n") for part in blocks if part is not None).strip() + "\n"
+
+
+def insert_body_images(markdown_body: str, body_images: list[str], placement: str, max_images: int) -> tuple[str, list[str]]:
+    if max_images <= 0 or not body_images:
+        return markdown_body, []
+
+    selected: list[str] = []
+    for src in body_images:
+        if src in markdown_body:
+            continue
+        selected.append(src)
+        if len(selected) >= max_images:
+            break
+
+    if not selected:
+        return markdown_body, []
+
+    image_block = "\n\n".join(f"![]({src})" for src in selected)
+    if placement == "after-first-h2":
+        return _insert_after_first_h2(markdown_body, image_block), selected
+    if placement == "after-intro":
+        return _insert_after_intro(markdown_body, image_block), selected
+
+    body = markdown_body.rstrip()
+    return f"{body}\n\n{image_block}\n", selected
 
 
 def build_missing_cover_hint(body_image_report: dict) -> str:
@@ -332,6 +427,39 @@ async def main() -> int:
     title = extract_title(markdown_text, args.title)
     article_body = strip_leading_h1(article_body, expected_title=title)
     author = detect_author(args.author, config.get("default_author"), markdown_text)
+
+    cover_image_hint = (args.cover_image or "").strip()
+    tail_image_hint = (args.tail_image or config.get("default_tail_image_path", "") or "").strip()
+    cli_body_images = normalize_image_list(args.body_image)
+    cfg_body_images = normalize_image_list(config.get("default_body_images"))
+    body_image_input_strategy = "cli" if cli_body_images else ("config-default" if cfg_body_images else "none")
+    requested_body_images = [
+        src
+        for src in (cli_body_images + [item for item in cfg_body_images if item not in cli_body_images])
+        if src not in {cover_image_hint, tail_image_hint}
+    ]
+
+    raw_max_body_images = args.max_body_images if args.max_body_images is not None else config.get("max_body_images", 1)
+    try:
+        max_body_images = max(0, int(raw_max_body_images))
+    except (TypeError, ValueError):
+        max_body_images = 1
+
+    strict_illustration = bool(args.strict_illustration or config.get("strict_illustration", False))
+
+    body_image_placement = (args.body_image_placement or config.get("body_image_placement") or "before-ending").strip()
+    if body_image_placement == "before-ending":
+        body_image_placement = "before-signature"
+    elif body_image_placement not in {"after-first-h2", "before-signature", "after-intro"}:
+        body_image_placement = "before-signature"
+
+    article_body, inserted_body_images = insert_body_images(
+        markdown_body=article_body,
+        body_images=requested_body_images,
+        placement=body_image_placement,
+        max_images=max_body_images,
+    )
+
     article_body, signature_info = append_signature_block(
         article_body,
         author,
@@ -361,13 +489,35 @@ async def main() -> int:
         cover_strategy = "auto-first-body-image-or-missing"
 
     used_default_thumb = bool((not explicit_thumb) and (not cover_image) and default_thumb)
+
+    image_state = (args.image_state or config.get("default_image_state") or "").strip()
+    if image_state not in {"article-specific", "fallback-approved", "text-only", "blocked-by-image"}:
+        image_state = "article-specific" if inserted_body_images else "text-only"
+
     image_analysis = classify_image_sources(article_body, article_file=article_file, asset_base_dir=asset_base_dir)
     preview_image_count = image_analysis["found_image_count"]
     cover_candidate_count = sum(1 for item in image_analysis["sources"] if item["src"] != tail_image_src)
 
+    has_any_body_images = cover_candidate_count > 0
+    if image_state == "article-specific" and not has_any_body_images:
+        image_state = "text-only"
+
+    disclosure_required = image_state == "fallback-approved"
+    used_fallback_body_images = bool(image_state == "fallback-approved" and inserted_body_images)
+    if strict_illustration and image_state != "text-only" and not has_any_body_images:
+        return fail(
+            "当前要求严格插图，但正文里没有可用插图",
+            title=title,
+            author=author,
+            image_state=image_state,
+            next_action="请补 --body-image/--illustration，或把 image_state 改成 text-only",
+        )
+
     if args.check or args.dry_run or args.check_images:
         next_action = None
-        if not explicit_thumb and not default_thumb and not cover_image and cover_candidate_count == 0:
+        if image_state == "blocked-by-image":
+            next_action = "当前 image_state=blocked-by-image：按发布门禁应先修复配图，再进入草稿箱"
+        elif not explicit_thumb and not default_thumb and not cover_image and cover_candidate_count == 0:
             next_action = "请提供 --cover-image 或 --thumb-media-id，或在配置中设置 default_thumb_media_id；否则微信大概率会因缺少有效封面而拒绝发布"
         elif image_analysis["unresolved_local_image_count"] > 0:
             next_action = "存在未解析成功的本地图片路径，请先修正图片路径，或改用 --asset-base-dir 指定素材根目录"
@@ -391,6 +541,15 @@ async def main() -> int:
             "html_preview_chars": len(content_html),
             "body_image_count": preview_image_count,
             "cover_candidate_image_count": cover_candidate_count,
+            "body_image_placement": body_image_placement,
+            "max_body_images": max_body_images,
+            "strict_illustration": strict_illustration,
+            "requested_body_images": requested_body_images,
+            "inserted_body_images": inserted_body_images,
+            "body_image_input_strategy": body_image_input_strategy,
+            "image_state": image_state,
+            "disclosure_required": disclosure_required,
+            "used_fallback_body_images": used_fallback_body_images,
             "signature_template_src": signature_info.get("source"),
             "signature_strategy": signature_info.get("strategy"),
             "signature_variant": signature_info.get("variant"),
@@ -407,6 +566,15 @@ async def main() -> int:
             "next_action": next_action,
         }, ensure_ascii=False, indent=2))
         return 0
+
+    if image_state == "blocked-by-image":
+        return fail(
+            "当前配图状态为 blocked-by-image，按门禁不继续推进草稿箱",
+            title=title,
+            author=author,
+            image_state=image_state,
+            next_action="请先修复专属配图或改为 text-only / fallback-approved 后再发布",
+        )
 
     appid = config.get("wechat_appid", "")
     secret = config.get("wechat_secret", "")
@@ -492,6 +660,15 @@ async def main() -> int:
         "used_default_thumb_media_id": used_default_thumb,
         "style_theme": theme_name,
         "accent_color": accent_color,
+        "body_image_placement": body_image_placement,
+        "max_body_images": max_body_images,
+        "strict_illustration": strict_illustration,
+        "requested_body_images": requested_body_images,
+        "inserted_body_images": inserted_body_images,
+        "body_image_input_strategy": body_image_input_strategy,
+        "image_state": image_state,
+        "disclosure_required": disclosure_required,
+        "used_fallback_body_images": used_fallback_body_images,
         "signature_template_src": signature_info.get("source"),
         "signature_strategy": signature_info.get("strategy"),
         "signature_variant": signature_info.get("variant"),
