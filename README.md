@@ -1,6 +1,7 @@
 # OpenClaw WeChat Publishing Kit
 
-把你的**个人资料 + 参考内容 + 公众号配置**，整理成一篇适合你口吻的公众号文章，并送进**微信公众号草稿箱**。
+这是一个给 OpenClaw 使用的 **skills 交付包**。  
+它会把你的**个人资料 + 参考内容 + 公众号配置**，整理成一篇适合你口吻的公众号文章，并送进**微信公众号草稿箱**。
 
 这是一个真正极简版：
 **只保留两段能力：资料整理、草稿箱发布。**
@@ -65,6 +66,12 @@ cd openclaw-wechat-publishing-kit
 
 ```bash
 bash install.sh
+```
+
+安装完成后，这套内容会进入你的 OpenClaw skills 目录：
+
+```bash
+~/.openclaw/skills/
 ```
 
 默认只安装两部分：

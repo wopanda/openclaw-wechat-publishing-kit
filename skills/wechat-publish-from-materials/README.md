@@ -1,6 +1,6 @@
 # wechat-publish-from-materials
 
-这是第一次接入用户的默认入口。
+这是第一次接入用户的默认入口，也是这个交付包里的主 skill。
 
 ## 你只需要提供什么
 
