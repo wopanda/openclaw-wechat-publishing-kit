@@ -2,8 +2,8 @@
 
 把你的**个人资料 + 参考内容 + 公众号配置**，整理成一篇适合你口吻的公众号文章，并送进**微信公众号草稿箱**。
 
-如果你是第一次接这个 skill，先别想 workflow、预览链、图片桥这些事。  
-**你只需要关心 3 件事：你要提供什么、怎么发到草稿箱、什么时候算成功。**
+这是一个真正极简版：
+**只保留两段能力：资料整理、草稿箱发布。**
 
 ## 你只需要准备什么
 
@@ -41,11 +41,6 @@
 2. 做一次发布前检查
 3. 把文章送进微信公众号草稿箱
 
-也就是说，你最终看到的结果应该是：
-- 已读取资料
-- 已生成正文
-- 已进入草稿箱
-
 ---
 
 ## 第一次接入：最短路径
@@ -63,7 +58,7 @@ cd openclaw-wechat-publishing-kit
 bash install.sh
 ```
 
-默认会安装最稳的发布链：
+默认只安装两部分：
 - `wechat-publish-from-materials`
 - `wechat-draft-publisher`
 
@@ -137,16 +132,29 @@ python3 scripts/check_wechat_connection.py
 
 ---
 
-## 第一次成功前，你暂时不用关心什么
+## 保留了什么
 
-这些都不是第一次接入必须要开的：
-- 飞书预览
-- 图文原型
-- 图片桥
-- 复杂 workflow
-- 扩展编排链
+### 封面能力还在
+支持：
+- `--cover-image`
+- `--thumb-media-id`
+- `default_thumb_media_id`
+- 自动封面策略
 
-先把**“资料 → 正文 → 草稿箱”**跑通，再考虑进阶能力。
+### 公众号样式还在
+当前内置主题：
+- `wechat-pro`（默认）
+- `cyan-clean`
+- `slate-blue`
+
+在 `config/settings.json` 中可配置：
+
+```json
+{
+  "style_theme": "wechat-pro",
+  "accent_color": "#1f9d55"
+}
+```
 
 ---
 
@@ -171,28 +179,8 @@ python3 scripts/check_wechat_connection.py
 
 ---
 
-## 进阶能力（先不用）
-
-如果你后面要更复杂的链路，仓库里还保留了扩展能力，比如：
-- 更复杂的内容编排
-- 更多中间产物
-- 可选扩展模块
-
-但这不是第一次接入必须理解的内容。
-
----
-
 ## 安全说明
 
 - 不要把真实 `credentials.json` 提交到 git
 - 不要把真实 `settings.json` 提交到 git
 - 不要在 README、SKILL、示例里暴露 API Key / AppSecret
-
----
-
-## 验收与演示文档
-
-如果你需要看更完整的验收记录，再看：
-- `docs/fresh-clone-validation.md`
-- `docs/demo-walkthrough.md`
-- `docs/hardening-notes.md`
