@@ -7,6 +7,7 @@
 1. `persona.md`
 2. 一篇参考内容或一组材料
 3. 公众号 `appid / secret`
+4. 如果想改观感：`style_theme` / `accent_color`
 
 ## 它会帮你做什么
 

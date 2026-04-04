@@ -84,6 +84,15 @@ cp settings.example.json settings.json
 - 作者名
 - 输出目录
 
+如果你想改公众号样式，也可以顺手改这两个：
+- `style_theme`
+- `accent_color`
+
+当前内置 3 套主题：
+- `wechat-pro`（默认绿色系）
+- `cyan-clean`（青蓝风）
+- `slate-blue`（蓝灰风）
+
 ### 第 5 步：先做一次连通性检查
 
 ```bash
@@ -173,9 +182,26 @@ python3 scripts/check_wechat_connection.py
 python3 scripts/check_wechat_connection.py
 ```
 
-### 3. 我已经有 Markdown，还要走前面那套吗？
-不用。  
-你可以直接把 Markdown 交给 `wechat-draft-publisher` 推草稿箱。
+### 4. 我能改公众号样式吗？
+可以。
+
+在 `settings.json` 里改：
+- `style_theme`
+- `accent_color`
+
+当前内置主题：
+- `wechat-pro`（默认绿色系）
+- `cyan-clean`（青蓝风）
+- `slate-blue`（蓝灰风）
+
+例如：
+
+```json
+{
+  "style_theme": "cyan-clean",
+  "accent_color": "#2b6cb0"
+}
+```
 
 ---
 
