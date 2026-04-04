@@ -1,0 +1,25 @@
+# local secrets
+**/credentials.json
+**/settings.json
+*.key
+*.pem
+.env
+.env.*
+
+# outputs
+**/output/
+**/tmp/
+**/.cache/
+
+# python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+
+# editor
+.DS_Store
+.vscode/
+.idea/

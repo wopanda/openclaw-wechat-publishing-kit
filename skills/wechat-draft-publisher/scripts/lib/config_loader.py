@@ -1,0 +1,101 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any, Dict
+
+
+DEFAULTS: Dict[str, Any] = {
+    "default_author": "日新",
+    "default_thumb_media_id": "",
+    "default_tail_image_path": "",
+    "default_signature_template_path": "",
+    "weixin_api_base": "https://api.weixin.qq.com",
+    "format_markdown": True,
+    "request_timeout_seconds": 30,
+    "upload_remote_images": True,
+    "style_theme": "wechat-pro",
+    "accent_color": "#1f9d55",
+}
+
+
+class ConfigError(RuntimeError):
+    pass
+
+
+def _skill_root() -> Path:
+    return Path(__file__).resolve().parents[2]
+
+
+def _read_json(path: Path) -> Dict[str, Any]:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ConfigError(f"配置文件 JSON 解析失败: {path}: {exc}") from exc
+
+
+def _load_split_config(config_dir: Path) -> Dict[str, Any]:
+    settings_file = config_dir / "settings.json"
+    credentials_file = config_dir / "credentials.json"
+
+    if not settings_file.exists() and not credentials_file.exists():
+        raise ConfigError(f"配置目录中未找到 settings.json / credentials.json: {config_dir}")
+
+    settings = _read_json(settings_file) if settings_file.exists() else {}
+    credentials = _read_json(credentials_file) if credentials_file.exists() else {}
+
+    merged = dict(DEFAULTS)
+    merged.update(
+        {
+            "default_author": settings.get("author", DEFAULTS["default_author"]),
+            "default_thumb_media_id": settings.get("default_thumb_media_id", DEFAULTS["default_thumb_media_id"]),
+            "default_tail_image_path": settings.get("default_tail_image_path", DEFAULTS["default_tail_image_path"]),
+            "default_signature_template_path": settings.get("default_signature_template_path", DEFAULTS["default_signature_template_path"]),
+            "output_dir": settings.get("output_dir"),
+            "server_ip": settings.get("server_ip"),
+            "use_custom_prompts": settings.get("use_custom_prompts", False),
+            "weixin_api_base": settings.get("weixin_api_base", DEFAULTS["weixin_api_base"]),
+            "format_markdown": settings.get("format_markdown", DEFAULTS["format_markdown"]),
+            "request_timeout_seconds": settings.get("request_timeout_seconds", DEFAULTS["request_timeout_seconds"]),
+            "upload_remote_images": settings.get("upload_remote_images", DEFAULTS["upload_remote_images"]),
+            "style_theme": settings.get("style_theme", DEFAULTS["style_theme"]),
+            "accent_color": settings.get("accent_color", DEFAULTS["accent_color"]),
+            "wechat_appid": credentials.get("wechat", {}).get("appid", ""),
+            "wechat_secret": credentials.get("wechat", {}).get("secret", ""),
+            "llm": credentials.get("llm", {}),
+            "image": credentials.get("image", {}),
+            "config_source": str(config_dir),
+            "config_format": "split",
+        }
+    )
+    return merged
+
+
+def _load_single_json(path: Path) -> Dict[str, Any]:
+    data = _read_json(path)
+    merged = dict(DEFAULTS)
+    merged.update(data)
+    merged["config_source"] = str(path)
+    merged["config_format"] = "single-json"
+    return merged
+
+
+def load_config(config_path: str | None) -> Dict[str, Any]:
+    if config_path:
+        candidate = Path(config_path)
+        if candidate.is_dir():
+            return _load_split_config(candidate)
+        if candidate.exists():
+            return _load_single_json(candidate)
+        raise ConfigError(f"配置路径不存在: {candidate}")
+
+    local_config_dir = _skill_root() / "config"
+    settings_file = local_config_dir / "settings.json"
+    credentials_file = local_config_dir / "credentials.json"
+    if settings_file.exists() or credentials_file.exists():
+        return _load_split_config(local_config_dir)
+
+    merged = dict(DEFAULTS)
+    merged["config_source"] = "defaults"
+    merged["config_format"] = "defaults"
+    return merged

@@ -1,0 +1,22 @@
+{
+  "_comment": "publish-only 核心 Skill 的普通配置模板，可提交到 git",
+  "author": "Your Name",
+  "default_thumb_media_id": "",
+  "output_dir": "./output",
+  "server_ip": null,
+  "use_custom_prompts": false,
+  "weixin_api_base": "https://api.weixin.qq.com",
+  "format_markdown": true,
+  "request_timeout_seconds": 30,
+  "upload_remote_images": true,
+  "polish": {
+    "enabled": false,
+    "command": "python3 scripts/polish_builtin.py --input {input} --output {output}",
+    "timeout_seconds": 180,
+    "keep_intermediate": true,
+    "notes": "默认示例为仓库内置低风险去 AI 味脚本；也可替换成你自己的润色命令。"
+  },
+  "style_theme": "wechat-pro",
+  "accent_color": "#1f9d55",
+  "default_tail_image_path": "./assets/default-article-tail.jpg"
+}
