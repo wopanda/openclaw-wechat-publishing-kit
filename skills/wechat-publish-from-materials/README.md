@@ -56,22 +56,33 @@ python3 scripts/merge_illustrations_into_article.py \
 如果想切换生图 provider：
 
 ```bash
-# 默认 MiniMax
+# 默认 MiniMax（不填 provider 也会走 minimax）
 python3 scripts/generate_article_illustrations.py \
   --plan /tmp/illustration-plan.json \
-  --output-dir /tmp/article-images
+  --output-dir /tmp/article-images \
+  --provider minimax \
+  --minimax-api-key "$MINIMAX_API_KEY"
 
 # 切到即梦 / Seedream 兼容链
 python3 scripts/generate_article_illustrations.py \
   --plan /tmp/illustration-plan.json \
   --output-dir /tmp/article-images \
-  --image-provider jimeng \
-  --image-api-key "$JIMENG_API_KEY"
+  --provider jimeng \
+  --jimeng-api-key "$JIMENG_API_KEY"
 ```
 
+参数规则：
+- 不填 provider 时默认 `minimax`
+- `--minimax-api-key` / `--jimeng-api-key` 优先级高于通用 `--api-key`
+- 参数别名兼容：
+  - `--provider` 等价 `--image-provider`
+  - `--api-key` 等价 `--image-api-key`
+  - `--base-url` 等价 `--image-base-url`
+  - `--model` 等价 `--image-model`
+
 如有需要，也可以继续覆盖：
-- `--image-base-url`
-- `--image-model`
+- `--base-url`（或 `--image-base-url`）
+- `--model`（或 `--image-model`）
 生成后的 `illustration-plan.generated.json` 既可以直接交给 publisher，也可以先回填成一份新的 Markdown 再交给 publisher：
 
 ```bash

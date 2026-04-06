@@ -66,11 +66,14 @@ def main() -> int:
     parser.add_argument('--publisher-config', default='')
     parser.add_argument('--cover-image', default='')
     parser.add_argument('--image-state', default='')
-    parser.add_argument('--image-provider', default='', help='Image provider: minimax | jimeng | seedream | ark')
-    parser.add_argument('--image-api-key', default='', help='Override API key for selected image provider')
-    parser.add_argument('--image-base-url', default='', help='Override base URL for selected image provider')
-    parser.add_argument('--image-model', default='', help='Override model for selected image provider')
-    parser.add_argument('--prompt-optimizer', default='', help='MiniMax only: override prompt_optimizer')
+
+    parser.add_argument('--provider', '--image-provider', dest='provider', default='minimax', help='Image provider: minimax | jimeng')
+    parser.add_argument('--api-key', '--image-api-key', dest='api_key', default='', help='Generic API key for selected provider')
+    parser.add_argument('--minimax-api-key', default='', help='MiniMax API key (higher priority than --api-key)')
+    parser.add_argument('--jimeng-api-key', default='', help='Jimeng API key (higher priority than --api-key when provider=jimeng)')
+    parser.add_argument('--model', '--image-model', dest='model', default='', help='Override provider model id')
+    parser.add_argument('--base-url', '--image-base-url', dest='base_url', default='', help='Override provider endpoint base url')
+    parser.add_argument('--prompt-optimizer', default='', help='MiniMax only: override prompt_optimizer for all slots: true/false')
     args = parser.parse_args()
 
     article_path = Path(args.article).expanduser().resolve()
@@ -125,17 +128,22 @@ def main() -> int:
             '--output-dir', str(output_dir),
             '--slots-file', str(slots_path),
             '--merged-plan-output', str(generated_plan_path),
+            '--provider', args.provider,
         ]
-        if args.image_provider.strip():
-            gen_cmd.extend(['--image-provider', args.image_provider.strip()])
-        if args.image_api_key.strip():
-            gen_cmd.extend(['--image-api-key', args.image_api_key.strip()])
-        if args.image_base_url.strip():
-            gen_cmd.extend(['--image-base-url', args.image_base_url.strip()])
-        if args.image_model.strip():
-            gen_cmd.extend(['--image-model', args.image_model.strip()])
+
+        if args.api_key.strip():
+            gen_cmd.extend(['--api-key', args.api_key.strip()])
+        if args.minimax_api_key.strip():
+            gen_cmd.extend(['--minimax-api-key', args.minimax_api_key.strip()])
+        if args.jimeng_api_key.strip():
+            gen_cmd.extend(['--jimeng-api-key', args.jimeng_api_key.strip()])
+        if args.model.strip():
+            gen_cmd.extend(['--model', args.model.strip()])
+        if args.base_url.strip():
+            gen_cmd.extend(['--base-url', args.base_url.strip()])
         if args.prompt_optimizer.strip():
             gen_cmd.extend(['--prompt-optimizer', args.prompt_optimizer.strip()])
+
         gen_proc = run_cmd(gen_cmd)
         if gen_proc.returncode != 0:
             return fail('generate-illustrations', gen_proc, command=gen_cmd)
@@ -149,18 +157,13 @@ def main() -> int:
             '--plan', str(plan_path),
             '--output-dir', str(output_dir),
             '--slots-file', str(slots_path),
+            '--provider', args.provider,
             '--dry-run',
         ]
-        if args.image_provider.strip():
-            gen_cmd.extend(['--image-provider', args.image_provider.strip()])
-        if args.image_model.strip():
-            gen_cmd.extend(['--image-model', args.image_model.strip()])
-        if args.image_base_url.strip():
-            gen_cmd.extend(['--image-base-url', args.image_base_url.strip()])
-        dry_proc = run_cmd(gen_cmd)
-        if dry_proc.returncode != 0:
-            return fail('generate-dry-run', dry_proc, command=gen_cmd)
-        generation_result = parse_json_output(dry_proc)
+        gen_proc = run_cmd(gen_cmd)
+        if gen_proc.returncode != 0:
+            return fail('generate-dry-run', gen_proc, command=gen_cmd)
+        generation_result = parse_json_output(gen_proc)
         generation_mode = 'dry-run'
 
     handoff_cmd = [
@@ -206,7 +209,6 @@ def main() -> int:
         'slots_path': str(slots_path),
         'prompts_path': str(prompts_path),
         'generation_mode': generation_mode,
-        'image_provider': args.image_provider or 'minimax',
         'generated_plan_path': effective_generated_plan,
         'generation_result': generation_result,
         'handoff_command': (handoff_proc.stdout or '').strip(),

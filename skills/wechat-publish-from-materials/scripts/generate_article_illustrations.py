@@ -3,11 +3,34 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
 
-IMAGE_BRIDGE = Path(__file__).resolve().parent / 'generate_with_minimax.py'
+MINIMAX_BRIDGE = Path(__file__).resolve().parent / 'generate_with_minimax.py'
+JIMENG_BRIDGE = Path(__file__).resolve().parent / 'generate_with_seedream.py'
+
+
+def normalize_provider(provider: str) -> str:
+    value = (provider or '').strip().lower()
+    if value in {'', 'minimax'}:
+        return 'minimax'
+    if value in {'jimeng', 'seedream', 'ark', 'doubao'}:
+        return 'jimeng'
+    raise ValueError(f'不支持的 provider: {provider}；可选: minimax, jimeng')
+
+
+def pick_bridge(provider: str) -> Path:
+    if provider == 'minimax':
+        return MINIMAX_BRIDGE
+    return JIMENG_BRIDGE
+
+
+def resolve_effective_api_key(provider: str, generic: str, minimax_key: str, jimeng_key: str) -> str:
+    if provider == 'minimax':
+        return (minimax_key or generic).strip()
+    return (jimeng_key or generic).strip()
 
 
 def load_plan(path: Path) -> dict:
@@ -56,8 +79,6 @@ def merge_results(plan: dict, results: dict) -> dict:
                 'status': result.get('status', slot.get('status', 'generated')),
                 'local_path': result.get('local_path', slot.get('local_path', '')),
                 'generation_reason': result.get('reason', ''),
-                'image_provider': result.get('provider', ''),
-                'image_model': result.get('model', ''),
             })
         merged_slots.append(merged)
     merged_plan = dict(plan)
@@ -73,16 +94,22 @@ def main() -> int:
     parser.add_argument('--slots-file', default='')
     parser.add_argument('--merged-plan-output', default='')
     parser.add_argument('--dry-run', action='store_true')
-    parser.add_argument('--image-provider', default='', help='Image provider: minimax | jimeng | seedream | ark')
-    parser.add_argument('--image-api-key', default='', help='Override API key for selected image provider')
-    parser.add_argument('--image-base-url', default='', help='Override base URL for selected image provider')
-    parser.add_argument('--image-model', default='', help='Override model for selected image provider')
-    parser.add_argument('--prompt-optimizer', default='', help='MiniMax only: override prompt_optimizer')
+
+    parser.add_argument('--provider', '--image-provider', dest='provider', default=os.environ.get('WECHAT_ILLUSTRATION_PROVIDER', 'minimax'), help='Image provider: minimax | jimeng (aliases: seedream/ark/doubao)')
+    parser.add_argument('--api-key', '--image-api-key', dest='api_key', default='', help='Generic API key for selected provider')
+    parser.add_argument('--minimax-api-key', default='', help='MiniMax API key (higher priority than --api-key when provider=minimax)')
+    parser.add_argument('--jimeng-api-key', default='', help='Jimeng/Seedream API key (higher priority than --api-key when provider=jimeng)')
+    parser.add_argument('--model', '--image-model', dest='model', default='', help='Override provider model id')
+    parser.add_argument('--base-url', '--image-base-url', dest='base_url', default='', help='Override provider endpoint base url')
+    parser.add_argument('--prompt-optimizer', default='', help='MiniMax only: override prompt_optimizer for all slots: true/false')
     args = parser.parse_args()
 
     plan_path = Path(args.plan).expanduser().resolve()
     output_dir = Path(args.output_dir).expanduser().resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    provider = normalize_provider(args.provider)
+    bridge = pick_bridge(provider)
 
     plan = load_plan(plan_path)
     slots_payload = build_slots_payload(plan)
@@ -93,33 +120,37 @@ def main() -> int:
         print(json.dumps({
             'ok': True,
             'mode': 'dry-run',
-            'image_provider': args.image_provider or 'minimax',
+            'provider': provider,
+            'bridge': str(bridge),
             'slots_file': str(slots_file),
             'output_dir': str(output_dir),
             'slot_count': len(slots_payload.get('slots', [])),
         }, ensure_ascii=False, indent=2))
         return 0
 
+    effective_api_key = resolve_effective_api_key(provider, args.api_key, args.minimax_api_key, args.jimeng_api_key)
+
     cmd = [
         sys.executable,
-        str(IMAGE_BRIDGE),
+        str(bridge),
         '--slots-file', str(slots_file),
         '--output-dir', str(output_dir),
     ]
-    if args.image_provider.strip():
-        cmd.extend(['--provider', args.image_provider.strip()])
-    if args.image_api_key.strip():
-        cmd.extend(['--api-key', args.image_api_key.strip()])
-    if args.image_base_url.strip():
-        cmd.extend(['--base-url', args.image_base_url.strip()])
-    if args.image_model.strip():
-        cmd.extend(['--model', args.image_model.strip()])
-    if args.prompt_optimizer.strip():
+
+    if effective_api_key:
+        cmd.extend(['--api-key', effective_api_key])
+    if args.model.strip():
+        cmd.extend(['--model', args.model.strip()])
+    if args.base_url.strip():
+        cmd.extend(['--base-url', args.base_url.strip()])
+    if provider == 'minimax' and args.prompt_optimizer.strip():
         cmd.extend(['--prompt-optimizer', args.prompt_optimizer.strip()])
 
     proc = subprocess.run(cmd, capture_output=True, text=True)
     if proc.returncode != 0:
-        raise SystemExit(proc.returncode)
+        stderr = (proc.stderr or '').strip()
+        stdout = (proc.stdout or '').strip()
+        raise SystemExit(f'{stderr}\n{stdout}'.strip())
 
     results = json.loads(proc.stdout)
     merged_plan = merge_results(plan, results)
@@ -127,7 +158,8 @@ def main() -> int:
     merged_out.write_text(json.dumps(merged_plan, ensure_ascii=False, indent=2), encoding='utf-8')
     print(json.dumps({
         'ok': True,
-        'image_provider': results.get('provider', args.image_provider or 'minimax'),
+        'provider': provider,
+        'bridge': str(bridge),
         'slots_file': str(slots_file),
         'merged_plan_output': str(merged_out),
         'results': results.get('results', []),
