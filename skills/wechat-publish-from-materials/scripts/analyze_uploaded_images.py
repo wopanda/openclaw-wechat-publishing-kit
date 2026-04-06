@@ -143,19 +143,103 @@ def infer_visual_type_from_text(text: str) -> tuple[str, str]:
     rules = [
         (('封面', 'cover', 'hero', '主题视觉'), ('cover', '封面图')),
         (('对比', '差异', 'comparison', 'compare', 'before after'), ('comparison', '对比图')),
-        (('流程', 'process', 'workflow', 'step'), ('process', '流程图')),
-        (('结构', 'framework', 'structure', 'architecture'), ('structure', '结构图')),
-        (('案例', '场景', 'case', 'scenario'), ('case_scene', '案例场景图')),
+        (('流程', 'process', 'workflow', 'step', 'flowchart'), ('process', '流程图')),
+        (('结构', 'framework', 'structure', 'architecture', 'mechanism'), ('structure', '结构图')),
+        (('案例', '场景', 'case', 'scenario', 'scene'), ('case_scene', '案例场景图')),
         (('证据', '数据', 'evidence', 'proof'), ('evidence', '证据图')),
         (('总结', '收口', 'closing', 'summary'), ('summary', '收口图')),
-        (('截图', 'screenshot', '界面', 'ui'), ('screenshot', '截图')),
+        (('截图', 'screenshot', '界面', 'ui', 'interface'), ('screenshot', '截图')),
         (('照片', 'photo', '人物', 'portrait'), ('photo', '照片')),
-        (('图表', 'chart', 'graph'), ('chart', '图表')),
+        (('图表', 'chart', 'graph', 'infographic'), ('chart', '图表')),
     ]
     for keywords, result in rules:
         if any(keyword in lowered for keyword in keywords):
             return result
     return 'unknown', '未知'
+
+
+def normalize_visual_type(value: Any, *fallback_texts: str) -> tuple[str, str]:
+    raw = str(value or '').strip().lower()
+    if raw:
+        inferred_raw, inferred_zh = infer_visual_type_from_text(raw)
+        if inferred_raw != 'unknown':
+            return inferred_raw, inferred_zh
+    combined = ' '.join(str(part or '') for part in fallback_texts if str(part or '').strip())
+    inferred_raw, inferred_zh = infer_visual_type_from_text(combined)
+    if inferred_raw != 'unknown':
+        return inferred_raw, inferred_zh
+    return 'unknown', '未知'
+
+
+def normalize_bool(value: Any, fallback_text: str = '') -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    text = str(value or '').strip().lower()
+    if text in {'true', '1', 'yes', 'y', '有', '是'}:
+        return True
+    if text in {'false', '0', 'no', 'n', '无', '否', 'none', 'null'}:
+        return False
+
+    hint = fallback_text.lower()
+    negative_patterns = [
+        'without text', 'no text', 'text-free', 'no labels', 'without labels',
+        '无文字', '没有文字', '无标题', '无标注',
+    ]
+    if any(token in hint for token in negative_patterns):
+        return False
+
+    positive_patterns = ['text', 'label', 'caption', 'poster', 'screenshot', 'ui', 'interface', '字幕', '标题', '文字', '标注']
+    if any(token in hint for token in positive_patterns):
+        return True
+
+    return False
+
+
+def _normalize_list_items(value: Any, *, max_items: int, lowercase: bool) -> list[str]:
+    if isinstance(value, list):
+        items = value
+    elif isinstance(value, str):
+        items = re.split(r'[,;/\n]+', value)
+    else:
+        items = []
+
+    out: list[str] = []
+    for item in items:
+        text = str(item or '').strip()
+        if not text:
+            continue
+        text = re.sub(r'\s+', ' ', text)
+        text = re.sub(r'[^\w\-\u4e00-\u9fff ]+', '', text)
+        text = text.strip(' _-')
+        if not text:
+            continue
+        if lowercase:
+            text = text.lower()
+        if text not in out:
+            out.append(text)
+        if len(out) >= max_items:
+            break
+    return out
+
+
+def normalize_tags(value: Any, *, fallback_text: str) -> list[str]:
+    tags = _normalize_list_items(value, max_items=8, lowercase=True)
+    if tags:
+        return tags
+    fallback = _normalize_list_items(re.split(r'[,;/\n]+', fallback_text), max_items=6, lowercase=True)
+    return fallback or ['unknown', 'article_illustration', 'wechat']
+
+
+def normalize_subjects(value: Any, *, fallback_text: str, tags: list[str]) -> list[str]:
+    subjects = _normalize_list_items(value, max_items=6, lowercase=False)
+    if subjects:
+        return subjects
+    fallback = _normalize_list_items(re.split(r'[,;/\n]+', fallback_text), max_items=4, lowercase=False)
+    if fallback:
+        return fallback
+    return tags[:3] or ['article illustration']
 
 
 def build_heuristic_analysis(image: dict[str, Any], *, file_name: str, model: str, base_url: str, reason: str) -> dict[str, Any]:
@@ -298,20 +382,66 @@ def analyze_one(image: dict[str, Any], api_key: str, model: str, base_url: str) 
         fallback['raw_response'] = json.dumps(raw, ensure_ascii=False)[:4000] if isinstance(raw, dict) else str(raw)[:4000]
         return fallback
 
-    visual_map = {
-        'cover': '封面图',
-        'comparison': '对比图',
-        'process': '流程图',
-        'structure': '结构图',
-        'case_scene': '案例场景图',
-        'evidence': '证据图',
-        'summary': '收口图',
-        'screenshot': '截图',
-        'photo': '照片',
-        'chart': '图表',
-        'unknown': '未知',
-    }
-    visual_type_raw = str(parsed.get('visual_type') or 'unknown').strip().lower()
+    caption = str(parsed.get('caption') or '').strip()
+    recommended_usage = str(parsed.get('recommended_usage') or '').strip()
+    visual_type_raw, visual_type = normalize_visual_type(
+        parsed.get('visual_type'),
+        caption,
+        recommended_usage,
+        ' '.join(str(t) for t in (parsed.get('tags') or [])),
+        ' '.join(str(t) for t in (parsed.get('dominant_subjects') or [])),
+        note,
+        file_name,
+    )
+    tag_fallback_text = ' '.join([
+        visual_type_raw,
+        caption,
+        recommended_usage,
+        ' '.join(str(t) for t in (parsed.get('dominant_subjects') or [])),
+        note,
+        file_name,
+    ])
+    tags = normalize_tags(parsed.get('tags'), fallback_text=tag_fallback_text)
+    subject_fallback_text = ' '.join([
+        caption,
+        recommended_usage,
+        ' '.join(tags),
+        note,
+    ])
+    dominant_subjects = normalize_subjects(parsed.get('dominant_subjects'), fallback_text=subject_fallback_text, tags=tags)
+    contains_text = normalize_bool(
+        parsed.get('contains_text'),
+        fallback_text=' '.join([
+            caption,
+            recommended_usage,
+            ' '.join(tags),
+            ' '.join(dominant_subjects),
+            visual_type_raw,
+        ])
+    )
+    if not caption:
+        caption_map = {
+            'cover': 'Thematic cover illustration',
+            'comparison': 'Comparison illustration',
+            'process': 'Process flow illustration',
+            'structure': 'Structure explanation illustration',
+            'case_scene': 'Case scene illustration',
+            'evidence': 'Evidence supporting illustration',
+            'summary': 'Closing summary illustration',
+            'screenshot': 'Interface screenshot reference',
+            'photo': 'Editorial photo reference',
+            'chart': 'Chart reference illustration',
+            'unknown': 'Article illustration candidate',
+        }
+        caption = caption_map.get(visual_type_raw, 'Article illustration candidate')
+    if not recommended_usage:
+        recommended_usage = build_heuristic_analysis(
+            image,
+            file_name=file_name,
+            model=model,
+            base_url=base_url,
+            reason='normalize_usage',
+        ).get('recommended_usage', '')
     return {
         'image_id': image_id,
         'image_path': image_path,
@@ -319,13 +449,13 @@ def analyze_one(image: dict[str, Any], api_key: str, model: str, base_url: str) 
         'file_name': file_name,
         'status': 'analyzed',
         'analysis_source': 'minimax_vision',
-        'caption': str(parsed.get('caption') or '').strip(),
-        'visual_type': visual_map.get(visual_type_raw, visual_type_raw or '未知'),
+        'caption': caption,
+        'visual_type': visual_type,
         'visual_type_raw': visual_type_raw,
-        'tags': parsed.get('tags') if isinstance(parsed.get('tags'), list) else [],
-        'contains_text': bool(parsed.get('contains_text')),
-        'recommended_usage': str(parsed.get('recommended_usage') or '').strip(),
-        'dominant_subjects': parsed.get('dominant_subjects') if isinstance(parsed.get('dominant_subjects'), list) else [],
+        'tags': tags,
+        'contains_text': contains_text,
+        'recommended_usage': recommended_usage,
+        'dominant_subjects': dominant_subjects,
         'model': model,
         'base_url': base_url,
     }
