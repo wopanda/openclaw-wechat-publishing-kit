@@ -141,6 +141,10 @@ def build_prompt(slot: dict[str, Any], provider: str) -> str:
     negative_prompt = str(slot.get('negative_prompt') or '').strip()
     if prompt_main:
         composed = f'{prompt_main}, negative prompt: {negative_prompt}' if negative_prompt else prompt_main
+        # MiniMax: inject no-text constraint if negative prompt is still empty after user-supplied merge
+        if provider == 'minimax' and not negative_prompt:
+            no_text_constraint = 'text, chinese text, english text, letters, numbers, watermark, logo, signature, caption, label, word, phrase, blurry, low quality'
+            composed = f'{composed}, negative prompt: {no_text_constraint}'
         limit = PROVIDER_PRESETS.get(provider, PROVIDER_PRESETS['minimax']).get('prompt_limit', 1450)
         return trim_prompt(composed, int(limit))
 
@@ -152,6 +156,12 @@ def build_prompt(slot: dict[str, Any], provider: str) -> str:
     aspect = slot.get('aspect_ratio', '')
     composed = f'{title}，{purpose}，{visual_type}，{scene}，{style}，{aspect}'.strip('， ')
     limit = PROVIDER_PRESETS.get(provider, PROVIDER_PRESETS['minimax']).get('prompt_limit', 1450)
+
+    # MiniMax cannot render text reliably — inject hard no-text constraint as default negative prompt
+    if provider == 'minimax':
+        no_text_constraint = 'text, chinese text, english text, letters, numbers, watermark, logo, signature, caption, label, word, phrase, blurry, low quality'
+        composed = f'{composed}, negative prompt: {no_text_constraint}'
+
     return trim_prompt(composed, int(limit))
 
 
