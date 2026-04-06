@@ -15,7 +15,7 @@
 - 吸收参考内容
 - 生成一篇适合你口吻的公众号正文
 - 可选生成文章插图规划、图位与 prompt 包
-- 可选调用 MiniMax 官方生图桥生成插图
+- 可选调用可切换 provider 的生图桥生成插图（默认 MiniMax，也可切到即梦 / Seedream 兼容链）
 - 可选把已生成插图回填进正文 Markdown
 - 做发布前检查
 - 推送到公众号草稿箱
@@ -52,6 +52,26 @@ python3 scripts/merge_illustrations_into_article.py \
 ```
 
 有真实生图条件时，再去掉 `--dry-run`。
+
+如果想切换生图 provider：
+
+```bash
+# 默认 MiniMax
+python3 scripts/generate_article_illustrations.py \
+  --plan /tmp/illustration-plan.json \
+  --output-dir /tmp/article-images
+
+# 切到即梦 / Seedream 兼容链
+python3 scripts/generate_article_illustrations.py \
+  --plan /tmp/illustration-plan.json \
+  --output-dir /tmp/article-images \
+  --image-provider jimeng \
+  --image-api-key "$JIMENG_API_KEY"
+```
+
+如有需要，也可以继续覆盖：
+- `--image-base-url`
+- `--image-model`
 生成后的 `illustration-plan.generated.json` 既可以直接交给 publisher，也可以先回填成一份新的 Markdown 再交给 publisher：
 
 ```bash

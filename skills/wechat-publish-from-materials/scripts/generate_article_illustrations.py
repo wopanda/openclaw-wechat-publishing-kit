@@ -7,7 +7,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-MINIMAX_BRIDGE = Path(__file__).resolve().parent / 'generate_with_minimax.py'
+IMAGE_BRIDGE = Path(__file__).resolve().parent / 'generate_with_minimax.py'
 
 
 def load_plan(path: Path) -> dict:
@@ -27,7 +27,14 @@ def build_slots_payload(plan: dict) -> dict:
             'position': slot.get('insert_after_heading') or slot.get('position', ''),
             'visual_type': slot.get('visual_type'),
             'scene_description': slot.get('scene_description'),
-            'prompt': slot.get('prompt') or slot.get('prompt_cn', ''),
+            'prompt': slot.get('prompt') or {
+                'zh_brief': slot.get('prompt_cn', ''),
+                'main_en': slot.get('prompt_main', ''),
+                'negative_en': slot.get('negative_prompt', ''),
+            },
+            'prompt_main': slot.get('prompt_main', ''),
+            'negative_prompt': slot.get('negative_prompt', ''),
+            'prompt_schema': slot.get('prompt_schema', {}),
             'aspect_ratio': slot.get('aspect_ratio', '4:3'),
             'style': slot.get('style', ''),
             'caption': slot.get('caption', ''),
@@ -49,6 +56,8 @@ def merge_results(plan: dict, results: dict) -> dict:
                 'status': result.get('status', slot.get('status', 'generated')),
                 'local_path': result.get('local_path', slot.get('local_path', '')),
                 'generation_reason': result.get('reason', ''),
+                'image_provider': result.get('provider', ''),
+                'image_model': result.get('model', ''),
             })
         merged_slots.append(merged)
     merged_plan = dict(plan)
@@ -64,6 +73,11 @@ def main() -> int:
     parser.add_argument('--slots-file', default='')
     parser.add_argument('--merged-plan-output', default='')
     parser.add_argument('--dry-run', action='store_true')
+    parser.add_argument('--image-provider', default='', help='Image provider: minimax | jimeng | seedream | ark')
+    parser.add_argument('--image-api-key', default='', help='Override API key for selected image provider')
+    parser.add_argument('--image-base-url', default='', help='Override base URL for selected image provider')
+    parser.add_argument('--image-model', default='', help='Override model for selected image provider')
+    parser.add_argument('--prompt-optimizer', default='', help='MiniMax only: override prompt_optimizer')
     args = parser.parse_args()
 
     plan_path = Path(args.plan).expanduser().resolve()
@@ -79,6 +93,7 @@ def main() -> int:
         print(json.dumps({
             'ok': True,
             'mode': 'dry-run',
+            'image_provider': args.image_provider or 'minimax',
             'slots_file': str(slots_file),
             'output_dir': str(output_dir),
             'slot_count': len(slots_payload.get('slots', [])),
@@ -87,10 +102,21 @@ def main() -> int:
 
     cmd = [
         sys.executable,
-        str(MINIMAX_BRIDGE),
+        str(IMAGE_BRIDGE),
         '--slots-file', str(slots_file),
         '--output-dir', str(output_dir),
     ]
+    if args.image_provider.strip():
+        cmd.extend(['--provider', args.image_provider.strip()])
+    if args.image_api_key.strip():
+        cmd.extend(['--api-key', args.image_api_key.strip()])
+    if args.image_base_url.strip():
+        cmd.extend(['--base-url', args.image_base_url.strip()])
+    if args.image_model.strip():
+        cmd.extend(['--model', args.image_model.strip()])
+    if args.prompt_optimizer.strip():
+        cmd.extend(['--prompt-optimizer', args.prompt_optimizer.strip()])
+
     proc = subprocess.run(cmd, capture_output=True, text=True)
     if proc.returncode != 0:
         raise SystemExit(proc.returncode)
@@ -101,6 +127,7 @@ def main() -> int:
     merged_out.write_text(json.dumps(merged_plan, ensure_ascii=False, indent=2), encoding='utf-8')
     print(json.dumps({
         'ok': True,
+        'image_provider': results.get('provider', args.image_provider or 'minimax'),
         'slots_file': str(slots_file),
         'merged_plan_output': str(merged_out),
         'results': results.get('results', []),
@@ -110,4 +137,3 @@ def main() -> int:
 
 if __name__ == '__main__':
     raise SystemExit(main())
-
