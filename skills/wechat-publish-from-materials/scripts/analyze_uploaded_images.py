@@ -242,6 +242,73 @@ def normalize_subjects(value: Any, *, fallback_text: str, tags: list[str]) -> li
     return tags[:3] or ['article illustration']
 
 
+def apply_contains_text_post_rule(
+    contains_text: bool,
+    *,
+    visual_type_raw: str,
+    caption: str,
+    recommended_usage: str,
+    tags: list[str],
+    dominant_subjects: list[str],
+    note: str,
+    file_name: str,
+) -> bool:
+    hint = ' '.join([
+        visual_type_raw,
+        caption,
+        recommended_usage,
+        ' '.join(tags),
+        ' '.join(dominant_subjects),
+        note,
+        file_name,
+    ]).lower()
+
+    explicit_positive_tokens = [
+        'poster', 'screenshot', 'screen', 'document', 'page', 'slide', 'subtitle', 'typography',
+        'ocr', 'quoted text', 'paragraph', 'headline', '文字', '大段文字', '段落', '标题文字', '界面', '截图',
+    ]
+    weak_text_tokens = [
+        'text', 'texts', 'label', 'labels', 'caption', 'captions', 'title', 'titles',
+        'ui', 'interface', 'menu', 'button', '标注', '标题',
+    ]
+    explicit_negative_tokens = [
+        'without text', 'no text', 'text-free', 'without labels', 'no labels',
+        '无文字', '没有文字', '无标注', '无标题',
+    ]
+    abstract_diagram_tokens = [
+        'abstract diagram', 'diagram', 'infographic', 'flowchart', 'process flow', 'process',
+        'workflow', 'mapping', 'structure', 'architecture', 'data visualization', 'data flow',
+        'nodes', 'connecting lines', 'flow lines', 'abstract icons', 'technical icons',
+        'technical diagram', 'schematic', 'system architecture', 'network diagram',
+        '逻辑', '流程', '结构', '图表', '架构', '数据流',
+    ]
+
+    if any(token in hint for token in explicit_negative_tokens):
+        return False
+
+    if visual_type_raw == 'screenshot':
+        return True
+
+    if visual_type_raw in {'cover', 'photo', 'case_scene', 'comparison', 'summary', 'evidence'}:
+        return any(token in hint for token in explicit_positive_tokens)
+
+    if visual_type_raw in {'process', 'structure', 'chart', 'unknown'}:
+        if any(token in hint for token in explicit_positive_tokens):
+            return True
+        if any(token in hint for token in abstract_diagram_tokens):
+            return False
+        if any(token in hint for token in weak_text_tokens):
+            return False
+        return contains_text
+
+    if any(token in hint for token in explicit_positive_tokens):
+        return True
+    if any(token in hint for token in weak_text_tokens):
+        return contains_text
+
+    return contains_text
+
+
 def build_heuristic_analysis(image: dict[str, Any], *, file_name: str, model: str, base_url: str, reason: str) -> dict[str, Any]:
     note = str(image.get('note') or '').strip()
     image_path = str(image.get('image_path') or '')
@@ -418,6 +485,16 @@ def analyze_one(image: dict[str, Any], api_key: str, model: str, base_url: str) 
             ' '.join(dominant_subjects),
             visual_type_raw,
         ])
+    )
+    contains_text = apply_contains_text_post_rule(
+        contains_text,
+        visual_type_raw=visual_type_raw,
+        caption=caption,
+        recommended_usage=recommended_usage,
+        tags=tags,
+        dominant_subjects=dominant_subjects,
+        note=note,
+        file_name=file_name,
     )
     if not caption:
         caption_map = {
