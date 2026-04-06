@@ -113,6 +113,9 @@ def normalize_analysis(data: Any) -> dict[str, dict[str, Any]]:
             'visual_type': str(item.get('visual_type') or '').strip(),
             'tags': item.get('tags') if isinstance(item.get('tags'), list) else [],
             'contains_text': item.get('contains_text'),
+            'text_signal': str(item.get('text_signal') or '').strip(),
+            'recommended_usage': str(item.get('recommended_usage') or '').strip(),
+            'dominant_subjects': item.get('dominant_subjects') if isinstance(item.get('dominant_subjects'), list) else [],
         }
         for key in keys:
             result[key] = payload

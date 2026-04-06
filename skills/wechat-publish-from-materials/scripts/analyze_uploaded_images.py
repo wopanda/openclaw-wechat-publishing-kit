@@ -242,9 +242,57 @@ def normalize_subjects(value: Any, *, fallback_text: str, tags: list[str]) -> li
     return tags[:3] or ['article illustration']
 
 
+def infer_text_signal(
+    raw_contains_text: bool,
+    *,
+    visual_type_raw: str,
+    caption: str,
+    recommended_usage: str,
+    tags: list[str],
+    dominant_subjects: list[str],
+    note: str,
+    file_name: str,
+) -> str:
+    hint = ' '.join([
+        visual_type_raw,
+        caption,
+        recommended_usage,
+        ' '.join(tags),
+        ' '.join(dominant_subjects),
+        note,
+        file_name,
+    ]).lower()
+
+    explicit_negative_tokens = [
+        'without text', 'no text', 'text-free', 'without labels', 'no labels',
+        '无文字', '没有文字', '无标注', '无标题',
+    ]
+    explicit_positive_tokens = [
+        'poster', 'screenshot', 'screen', 'document', 'page', 'slide', 'subtitle', 'typography',
+        'ocr', 'quoted text', 'paragraph', 'headline', '文字', '大段文字', '段落', '标题文字', '界面', '截图',
+    ]
+    weak_text_tokens = [
+        'text', 'texts', 'label', 'labels', 'caption', 'captions', 'title', 'titles',
+        'ui', 'interface', 'menu', 'button', 'legend', '标注', '标题', '标签',
+    ]
+
+    if any(token in hint for token in explicit_negative_tokens):
+        return 'none'
+    if visual_type_raw == 'screenshot':
+        return 'strong'
+    if any(token in hint for token in explicit_positive_tokens):
+        return 'strong'
+    if any(token in hint for token in weak_text_tokens):
+        return 'weak'
+    if raw_contains_text:
+        return 'weak'
+    return 'none'
+
+
 def apply_contains_text_post_rule(
     contains_text: bool,
     *,
+    text_signal: str,
     visual_type_raw: str,
     caption: str,
     recommended_usage: str,
@@ -289,8 +337,11 @@ def apply_contains_text_post_rule(
     if visual_type_raw == 'screenshot':
         return True
 
+    if text_signal == 'strong':
+        return True
+
     if visual_type_raw in {'cover', 'photo', 'case_scene', 'comparison', 'summary', 'evidence'}:
-        return any(token in hint for token in explicit_positive_tokens)
+        return False
 
     if visual_type_raw in {'process', 'structure', 'chart', 'unknown'}:
         if any(token in hint for token in explicit_positive_tokens):
@@ -299,14 +350,14 @@ def apply_contains_text_post_rule(
             return False
         if any(token in hint for token in weak_text_tokens):
             return False
-        return contains_text
+        return False
 
     if any(token in hint for token in explicit_positive_tokens):
         return True
     if any(token in hint for token in weak_text_tokens):
-        return contains_text
+        return text_signal == 'strong'
 
-    return contains_text
+    return contains_text and text_signal == 'strong'
 
 
 def build_heuristic_analysis(image: dict[str, Any], *, file_name: str, model: str, base_url: str, reason: str) -> dict[str, Any]:
@@ -336,6 +387,7 @@ def build_heuristic_analysis(image: dict[str, Any], *, file_name: str, model: st
     tags = tags[:6] or ['unknown', 'article_illustration', 'wechat']
 
     contains_text = any(token in lowered for token in ['text', '文字', '标题', 'screenshot', '截图'])
+    text_signal = 'strong' if contains_text and any(token in lowered for token in ['screenshot', '截图', '标题', '文字']) else ('weak' if contains_text else 'none')
     caption_map = {
         'cover': 'Thematic cover illustration',
         'comparison': 'Context comparison illustration',
@@ -374,6 +426,7 @@ def build_heuristic_analysis(image: dict[str, Any], *, file_name: str, model: st
         'visual_type_raw': visual_type_raw,
         'tags': tags,
         'contains_text': contains_text,
+        'text_signal': text_signal,
         'recommended_usage': recommended_map.get(visual_type_raw, '可先进入人工确认或仅作为推荐候选'),
         'dominant_subjects': dominant_subjects,
         'reason': reason,
@@ -476,7 +529,7 @@ def analyze_one(image: dict[str, Any], api_key: str, model: str, base_url: str) 
         note,
     ])
     dominant_subjects = normalize_subjects(parsed.get('dominant_subjects'), fallback_text=subject_fallback_text, tags=tags)
-    contains_text = normalize_bool(
+    raw_contains_text = normalize_bool(
         parsed.get('contains_text'),
         fallback_text=' '.join([
             caption,
@@ -486,8 +539,19 @@ def analyze_one(image: dict[str, Any], api_key: str, model: str, base_url: str) 
             visual_type_raw,
         ])
     )
+    text_signal = infer_text_signal(
+        raw_contains_text,
+        visual_type_raw=visual_type_raw,
+        caption=caption,
+        recommended_usage=recommended_usage,
+        tags=tags,
+        dominant_subjects=dominant_subjects,
+        note=note,
+        file_name=file_name,
+    )
     contains_text = apply_contains_text_post_rule(
-        contains_text,
+        raw_contains_text,
+        text_signal=text_signal,
         visual_type_raw=visual_type_raw,
         caption=caption,
         recommended_usage=recommended_usage,
@@ -531,6 +595,7 @@ def analyze_one(image: dict[str, Any], api_key: str, model: str, base_url: str) 
         'visual_type_raw': visual_type_raw,
         'tags': tags,
         'contains_text': contains_text,
+        'text_signal': text_signal,
         'recommended_usage': recommended_usage,
         'dominant_subjects': dominant_subjects,
         'model': model,
