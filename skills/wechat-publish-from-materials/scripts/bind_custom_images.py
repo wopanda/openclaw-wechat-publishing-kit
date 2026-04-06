@@ -187,7 +187,9 @@ def build_image_text(image: dict[str, Any], analysis: dict[str, Any] | None) -> 
         file_name,
         str((analysis or {}).get('caption') or ''),
         str((analysis or {}).get('visual_type') or ''),
+        str((analysis or {}).get('recommended_usage') or ''),
         ' '.join(str(t) for t in ((analysis or {}).get('tags') or [])),
+        ' '.join(str(t) for t in ((analysis or {}).get('dominant_subjects') or [])),
     ]
     return ' '.join(parts)
 
@@ -205,15 +207,39 @@ def score_slot(slot: dict[str, Any], image: dict[str, Any], analysis: dict[str, 
     visual_bonus = 0.0
     image_visual = str((analysis or {}).get('visual_type') or '').strip().lower()
     slot_visual = str(slot.get('visual_type') or '').strip().lower()
-    if image_visual and slot_visual and image_visual == slot_visual:
-        visual_bonus += 0.35
+    visual_aliases = {
+        '封面图': {'封面图', 'cover', 'hero'},
+        '对比图': {'对比图', 'comparison', 'compare'},
+        '流程图': {'流程图', 'process', 'workflow'},
+        '结构图': {'结构图', 'structure', 'framework'},
+        '案例场景图': {'案例场景图', 'case', 'scenario'},
+        '证据图': {'证据图', 'evidence', 'proof'},
+        '收口图': {'收口图', 'summary', 'closing', 'end'},
+        '截图': {'截图', 'screenshot', 'interface', 'ui'},
+        '照片': {'照片', 'photo', 'portrait'},
+        '图表': {'图表', 'chart', 'graph'},
+    }
+    if image_visual and slot_visual:
+        if image_visual == slot_visual:
+            visual_bonus += 0.35
+        else:
+            matched_alias = False
+            for aliases in visual_aliases.values():
+                if image_visual in aliases and slot_visual in aliases:
+                    visual_bonus += 0.28
+                    matched_alias = True
+                    break
+            if not matched_alias and '流程' in image_visual and any(k in slot_visual for k in ['流程', '结构']):
+                visual_bonus += 0.18
 
     note = str(image.get('note') or '').lower()
+    usage = str((analysis or {}).get('recommended_usage') or '').lower()
     slot_id = str(slot.get('slot_id') or '').lower()
     slot_purpose = str(slot.get('purpose') or '').lower()
     slot_title = str(slot.get('title') or '').lower()
     slot_heading = str(slot.get('insert_after_heading') or '').lower()
     joined_slot = ' '.join([slot_id, slot_visual, slot_purpose, slot_title, slot_heading])
+    joined_signal = ' '.join([note, usage])
 
     keyword_rules = [
         (('封面', 'cover'), ('cover', 'hero', '封面'), 0.5),
@@ -224,9 +250,12 @@ def score_slot(slot: dict[str, Any], image: dict[str, Any], analysis: dict[str, 
         (('总结', '结尾', 'summary', 'closing'), ('summary', 'closing', '结尾', '总结'), 0.35),
     ]
     for note_keys, slot_keys, bonus in keyword_rules:
-        if any(k in note for k in note_keys) and any(k in joined_slot for k in slot_keys):
+        if any(k in joined_signal for k in note_keys) and any(k in joined_slot for k in slot_keys):
             visual_bonus += bonus
             break
+
+    if any(k in joined_signal for k in ['说明', '解释', '逻辑', 'process flow', 'workflow']) and any(k in joined_slot for k in ['流程', '结构']):
+        visual_bonus += 0.22
 
     if ('封面' in note or 'cover' in note) and not slot_id.startswith('cover'):
         visual_bonus -= 0.15
