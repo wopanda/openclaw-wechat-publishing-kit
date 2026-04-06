@@ -13,6 +13,7 @@ PUBLISHER_ROOT = SKILL_ROOT.parent / 'wechat-draft-publisher'
 
 BUILD_PLAN = SCRIPT_DIR / 'build_illustration_plan.py'
 GENERATE = SCRIPT_DIR / 'generate_article_illustrations.py'
+BIND_CUSTOM_IMAGES = SCRIPT_DIR / 'bind_custom_images.py'
 HANDOFF = SCRIPT_DIR / 'handoff_to_publisher.py'
 PUBLISH_CHECK = PUBLISHER_ROOT / 'scripts' / 'publish_markdown.py'
 
@@ -74,6 +75,14 @@ def main() -> int:
     parser.add_argument('--model', '--image-model', dest='model', default='', help='Override provider model id')
     parser.add_argument('--base-url', '--image-base-url', dest='base_url', default='', help='Override provider endpoint base url')
     parser.add_argument('--prompt-optimizer', default='', help='MiniMax only: override prompt_optimizer for all slots: true/false')
+
+    parser.add_argument('--custom-images', default='', help='Optional custom image JSON file (manual/assist/auto binding)')
+    parser.add_argument('--custom-image-mode', default='assist', choices=['manual', 'assist', 'auto'], help='Default mode when custom image has no explicit slot/heading')
+    parser.add_argument('--image-analysis-file', default='', help='Optional precomputed image analysis JSON (MiniMax vision or other mechanism)')
+    parser.add_argument('--bind-min-score', type=float, default=0.18, help='Min score for auto binding custom images')
+    parser.add_argument('--allow-cover-auto', action='store_true', help='Allow auto matcher to bind custom image to cover slot')
+    parser.add_argument('--no-replace-existing-images', action='store_true', help='Do not replace slots that already contain generated/user image')
+
     args = parser.parse_args()
 
     article_path = Path(args.article).expanduser().resolve()
@@ -166,6 +175,34 @@ def main() -> int:
         generation_result = parse_json_output(gen_proc)
         generation_mode = 'dry-run'
 
+    binding_result: dict = {}
+    if args.custom_images.strip():
+        base_plan_for_binding = effective_generated_plan or str(plan_path)
+        bound_plan_path = output_dir / 'illustration-plan.bound.json'
+        bind_cmd = [
+            sys.executable,
+            str(BIND_CUSTOM_IMAGES),
+            '--plan', str(base_plan_for_binding),
+            '--custom-images', args.custom_images.strip(),
+            '--output', str(bound_plan_path),
+            '--mode', args.custom_image_mode,
+            '--min-score', str(args.bind_min_score),
+        ]
+        if args.image_analysis_file.strip():
+            bind_cmd.extend(['--analysis-file', args.image_analysis_file.strip()])
+        if args.allow_cover_auto:
+            bind_cmd.append('--allow-cover-auto')
+        if args.no_replace_existing_images:
+            bind_cmd.append('--no-replace-existing')
+
+        bind_proc = run_cmd(bind_cmd)
+        if bind_proc.returncode != 0:
+            return fail('bind-custom-images', bind_proc, command=bind_cmd)
+
+        binding_result = parse_json_output(bind_proc)
+        effective_generated_plan = str(bound_plan_path)
+        generation_mode = f'{generation_mode}+custom-bound'
+
     handoff_cmd = [
         sys.executable,
         str(HANDOFF),
@@ -213,6 +250,7 @@ def main() -> int:
         'generation_result': generation_result,
         'handoff_command': (handoff_proc.stdout or '').strip(),
         'publisher_check': publisher_check_result,
+        'custom_image_binding': binding_result,
     }
     print(json.dumps(payload, ensure_ascii=False, indent=2))
     return 0

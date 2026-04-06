@@ -16,6 +16,7 @@
 - 生成一篇适合你口吻的公众号正文
 - 可选生成文章插图规划、图位与 prompt 包
 - 可选调用可切换 provider 的生图桥生成插图（默认 MiniMax，也可切到即梦 / Seedream 兼容链）
+- 可选把用户上传图片绑定到文章图位（手动 / 半自动 / 自动）
 - 可选把已生成插图回填进正文 Markdown
 - 做发布前检查
 - 推送到公众号草稿箱
@@ -83,7 +84,48 @@ python3 scripts/generate_article_illustrations.py \
 如有需要，也可以继续覆盖：
 - `--base-url`（或 `--image-base-url`）
 - `--model`（或 `--image-model`）
-生成后的 `illustration-plan.generated.json` 既可以直接交给 publisher，也可以先回填成一份新的 Markdown 再交给 publisher：
+
+如果要用“用户上传图片”替代/补充生图，可在统一流程里加：
+
+```bash
+python3 scripts/run_illustrated_publish_flow.py \
+  --article /path/to/article.md \
+  --generate \
+  --provider minimax \
+  --minimax-api-key "$MINIMAX_API_KEY" \
+  --custom-images /tmp/custom-images.json \
+  --custom-image-mode assist \
+  --image-analysis-file /tmp/custom-images.analysis.json
+```
+
+其中 `/tmp/custom-images.json` 示例：
+
+```json
+{
+  "custom_images": [
+    {
+      "image_id": "img_cover",
+      "image_path": "/tmp/openclaw/uploads/cover.jpg",
+      "slot_id": "cover_01",
+      "mode": "manual",
+      "note": "封面图"
+    },
+    {
+      "image_id": "img_cmp",
+      "image_path": "/tmp/openclaw/uploads/compare.png",
+      "note": "上下文差异对照图",
+      "mode": "assist",
+      "auto_match": true
+    }
+  ]
+}
+```
+
+`--image-analysis-file` 是可选增强层：
+- 你有 MiniMax 识图机制时，先产出图片理解 JSON，再喂给绑定器
+- 没有识图机制时，也可以只靠 `slot_id/heading/note` 先跑起来
+
+生成后的 `illustration-plan.generated.json` 或 `illustration-plan.bound.json` 既可以直接交给 publisher，也可以先回填成一份新的 Markdown 再交给 publisher：
 
 ```bash
 python3 ../wechat-draft-publisher/scripts/publish_markdown.py \
