@@ -125,6 +125,30 @@ python3 scripts/run_illustrated_publish_flow.py \
 - 你有 MiniMax 识图机制时，先产出图片理解 JSON，再喂给绑定器
 - 没有识图机制时，也可以只靠 `slot_id/heading/note` 先跑起来
 
+也可以直接使用内置识图脚本先产出分析结果：
+
+```bash
+python3 scripts/analyze_uploaded_images.py \
+  --custom-images /tmp/custom-images.json \
+  --output /tmp/custom-images.analysis.json
+```
+
+或者在统一流程里自动触发识图：
+
+```bash
+python3 scripts/run_illustrated_publish_flow.py \
+  --article /path/to/article.md \
+  --custom-images /tmp/custom-images.json \
+  --analyze-custom-images \
+  --image-understanding-provider minimax \
+  --image-understanding-model MiniMax-VL-01
+```
+
+说明：
+- 这一步现在会真实调用 MiniMax 识图，再把结果喂给绑定器
+- 识图和生图是两层能力，参数彼此分离
+- 如果识图结果不足以高置信命中图位，系统会保留 `recommendations / unmatched`，而不是强行乱插
+
 生成后的 `illustration-plan.generated.json` 或 `illustration-plan.bound.json` 既可以直接交给 publisher，也可以先回填成一份新的 Markdown 再交给 publisher：
 
 ```bash

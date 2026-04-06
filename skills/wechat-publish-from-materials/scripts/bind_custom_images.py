@@ -164,8 +164,26 @@ def build_slot_text(slot: dict[str, Any]) -> str:
 
 def build_image_text(image: dict[str, Any], analysis: dict[str, Any] | None) -> str:
     file_name = Path(str(image.get('image_path') or image.get('image_url') or '')).name
+    note = str(image.get('note') or '')
+    normalized_note = note
+    replacements = {
+        '上下文': 'context',
+        '差异': 'comparison difference compare',
+        '对比': 'comparison compare',
+        '封面': 'cover hero',
+        '流程': 'process workflow',
+        '结构': 'structure framework',
+        '案例': 'case scenario',
+        '总结': 'summary closing',
+        '结尾': 'summary closing',
+        '截图': 'screenshot interface',
+    }
+    for src, dst in replacements.items():
+        normalized_note = normalized_note.replace(src, f'{src} {dst}')
+
     parts = [
-        str(image.get('note') or ''),
+        note,
+        normalized_note,
         file_name,
         str((analysis or {}).get('caption') or ''),
         str((analysis or {}).get('visual_type') or ''),
@@ -192,11 +210,26 @@ def score_slot(slot: dict[str, Any], image: dict[str, Any], analysis: dict[str, 
 
     note = str(image.get('note') or '').lower()
     slot_id = str(slot.get('slot_id') or '').lower()
-    if '封面' in note or 'cover' in note:
-        if slot_id.startswith('cover'):
-            visual_bonus += 0.5
-        else:
-            visual_bonus -= 0.15
+    slot_purpose = str(slot.get('purpose') or '').lower()
+    slot_title = str(slot.get('title') or '').lower()
+    slot_heading = str(slot.get('insert_after_heading') or '').lower()
+    joined_slot = ' '.join([slot_id, slot_visual, slot_purpose, slot_title, slot_heading])
+
+    keyword_rules = [
+        (('封面', 'cover'), ('cover', 'hero', '封面'), 0.5),
+        (('对比', '差异', 'comparison', 'compare', 'context'), ('compare', 'comparison', '对比', '差异'), 0.45),
+        (('流程', 'workflow', 'process'), ('process', 'workflow', '流程'), 0.45),
+        (('结构', 'framework', 'structure'), ('structure', 'framework', '结构'), 0.45),
+        (('案例', '场景', 'case', 'scenario'), ('case', 'scenario', '场景', '案例'), 0.35),
+        (('总结', '结尾', 'summary', 'closing'), ('summary', 'closing', '结尾', '总结'), 0.35),
+    ]
+    for note_keys, slot_keys, bonus in keyword_rules:
+        if any(k in note for k in note_keys) and any(k in joined_slot for k in slot_keys):
+            visual_bonus += bonus
+            break
+
+    if ('封面' in note or 'cover' in note) and not slot_id.startswith('cover'):
+        visual_bonus -= 0.15
 
     return max(0.0, base + visual_bonus)
 

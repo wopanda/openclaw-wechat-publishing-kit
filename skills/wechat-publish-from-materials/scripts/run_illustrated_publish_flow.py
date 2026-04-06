@@ -13,6 +13,7 @@ PUBLISHER_ROOT = SKILL_ROOT.parent / 'wechat-draft-publisher'
 
 BUILD_PLAN = SCRIPT_DIR / 'build_illustration_plan.py'
 GENERATE = SCRIPT_DIR / 'generate_article_illustrations.py'
+ANALYZE_UPLOADED_IMAGES = SCRIPT_DIR / 'analyze_uploaded_images.py'
 BIND_CUSTOM_IMAGES = SCRIPT_DIR / 'bind_custom_images.py'
 HANDOFF = SCRIPT_DIR / 'handoff_to_publisher.py'
 PUBLISH_CHECK = PUBLISHER_ROOT / 'scripts' / 'publish_markdown.py'
@@ -79,6 +80,11 @@ def main() -> int:
     parser.add_argument('--custom-images', default='', help='Optional custom image JSON file (manual/assist/auto binding)')
     parser.add_argument('--custom-image-mode', default='assist', choices=['manual', 'assist', 'auto'], help='Default mode when custom image has no explicit slot/heading')
     parser.add_argument('--image-analysis-file', default='', help='Optional precomputed image analysis JSON (MiniMax vision or other mechanism)')
+    parser.add_argument('--analyze-custom-images', action='store_true', help='Analyze uploaded custom images with MiniMax vision before binding')
+    parser.add_argument('--image-understanding-provider', default='minimax', help='Current supported value: minimax')
+    parser.add_argument('--image-understanding-api-key', default='', help='MiniMax vision api key override')
+    parser.add_argument('--image-understanding-model', default='', help='MiniMax vision model override, default MiniMax-VL-01')
+    parser.add_argument('--image-understanding-base-url', default='', help='MiniMax vision base url override')
     parser.add_argument('--bind-min-score', type=float, default=0.18, help='Min score for auto binding custom images')
     parser.add_argument('--allow-cover-auto', action='store_true', help='Allow auto matcher to bind custom image to cover slot')
     parser.add_argument('--no-replace-existing-images', action='store_true', help='Do not replace slots that already contain generated/user image')
@@ -176,7 +182,33 @@ def main() -> int:
         generation_mode = 'dry-run'
 
     binding_result: dict = {}
+    analysis_result: dict = {}
     if args.custom_images.strip():
+        effective_analysis_file = args.image_analysis_file.strip()
+        if args.analyze_custom_images:
+            if args.image_understanding_provider.strip().lower() not in {'', 'minimax'}:
+                print(json.dumps({'ok': False, 'error': f'暂不支持的 image_understanding_provider: {args.image_understanding_provider}'}, ensure_ascii=False, indent=2))
+                return 1
+            analysis_out = output_dir / 'custom-image-analysis.json'
+            analyze_cmd = [
+                sys.executable,
+                str(ANALYZE_UPLOADED_IMAGES),
+                '--custom-images', args.custom_images.strip(),
+                '--output', str(analysis_out),
+            ]
+            if args.image_understanding_api_key.strip():
+                analyze_cmd.extend(['--api-key', args.image_understanding_api_key.strip()])
+            if args.image_understanding_model.strip():
+                analyze_cmd.extend(['--model', args.image_understanding_model.strip()])
+            if args.image_understanding_base_url.strip():
+                analyze_cmd.extend(['--base-url', args.image_understanding_base_url.strip()])
+
+            analyze_proc = run_cmd(analyze_cmd)
+            if analyze_proc.returncode != 0:
+                return fail('analyze-custom-images', analyze_proc, command=analyze_cmd)
+            analysis_result = parse_json_output(analyze_proc)
+            effective_analysis_file = str(analysis_out)
+
         base_plan_for_binding = effective_generated_plan or str(plan_path)
         bound_plan_path = output_dir / 'illustration-plan.bound.json'
         bind_cmd = [
@@ -188,8 +220,8 @@ def main() -> int:
             '--mode', args.custom_image_mode,
             '--min-score', str(args.bind_min_score),
         ]
-        if args.image_analysis_file.strip():
-            bind_cmd.extend(['--analysis-file', args.image_analysis_file.strip()])
+        if effective_analysis_file:
+            bind_cmd.extend(['--analysis-file', effective_analysis_file])
         if args.allow_cover_auto:
             bind_cmd.append('--allow-cover-auto')
         if args.no_replace_existing_images:
@@ -200,6 +232,8 @@ def main() -> int:
             return fail('bind-custom-images', bind_proc, command=bind_cmd)
 
         binding_result = parse_json_output(bind_proc)
+        if analysis_result:
+            binding_result['analysis'] = analysis_result
         effective_generated_plan = str(bound_plan_path)
         generation_mode = f'{generation_mode}+custom-bound'
 
