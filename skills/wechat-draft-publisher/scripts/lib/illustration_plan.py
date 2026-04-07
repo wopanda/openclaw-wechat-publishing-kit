@@ -24,6 +24,19 @@ def load_illustration_plan(plan_path: str | Path) -> dict[str, Any]:
     path = Path(plan_path).expanduser().resolve()
     data = json.loads(path.read_text(encoding='utf-8'))
     slots = _normalize_slots(data)
+    # Enrich slots: if generation_results exists at top level, inject remote_url back
+    # into the matching slot so _pick_image_src can find it
+    gen_results = data.get('generation_results') if isinstance(data, dict) else None
+    if gen_results and isinstance(gen_results, list):
+        slot_id_to_url = {
+            r.get('slot_id'): r.get('remote_url')
+            for r in gen_results
+            if isinstance(r, dict) and r.get('remote_url')
+        }
+        for slot in slots:
+            sid = str(slot.get('slot_id', '')).strip()
+            if sid in slot_id_to_url:
+                slot['remote_url'] = slot_id_to_url[sid]
     return {
         'path': str(path),
         'meta': data if isinstance(data, dict) else {},
@@ -32,7 +45,17 @@ def load_illustration_plan(plan_path: str | Path) -> dict[str, Any]:
 
 
 def _pick_image_src(slot: dict[str, Any]) -> str:
-    for key in ('local_path', 'image_path', 'image_url', 'src'):
+    # Priority: local_path (local file) > image_path > remote_url > image_url > src
+    # Local files are always used when available — they are stable and upload
+    # reliably to WeChat.  remote_url is a fallback only when local_path is absent.
+    # This ordering matters because after enrichment from generation_results,
+    # a slot may carry both local_path (set by merge_results) AND remote_url
+    # (set by load_illustration_plan enrichment).  We must prefer the local file.
+    for key in ('local_path', 'image_path'):
+        value = str(slot.get(key, '') or '').strip()
+        if value:
+            return value
+    for key in ('remote_url', 'image_url', 'src'):
         value = str(slot.get(key, '') or '').strip()
         if value:
             return value
@@ -58,11 +81,14 @@ def _render_slot_markdown(slot: dict[str, Any]) -> str:
     src = _pick_image_src(slot)
     if not src:
         return ''
-    caption = str(slot.get('caption', '') or '').strip()
-    alt = str(slot.get('title', '') or slot.get('slot_id', 'illustration')).strip()
+    # Alt text: never expose internal slot_id; use clean "配图" or visual_type
+    visual_type = str(slot.get('visual_type', '')).strip()
+    if visual_type and visual_type not in ('illustration', '配图'):
+        alt = visual_type
+    else:
+        alt = '配图'
     body = f'![{alt}]({src})'
-    if caption:
-        body += f'\n\n> {caption}'
+    # Caption blockquotes are internal notes — do NOT surface in final markdown
     return body
 
 
@@ -111,10 +137,26 @@ def merge_illustrations_into_markdown(markdown_body: str, plan: dict[str, Any]) 
                 pending_by_line.setdefault(idx, []).append(block)
                 merged_slot_ids.append(slot_id)
             else:
+                # Try fuzzy match: use section name as fallback heading
+                section = str(slot.get('section', '') or '').strip()
+                if section:
+                    idx = _find_heading_index(lines, section)
+                    if idx >= 0:
+                        pending_by_line.setdefault(idx, []).append(block)
+                        merged_slot_ids.append(slot_id)
+                        continue
                 tail_blocks.append(block)
                 unmatched_heading_slot_ids.append(slot_id)
                 merged_slot_ids.append(slot_id)
         else:
+            # No heading specified — try section as fallback before tailing
+            section = str(slot.get('section', '') or '').strip()
+            if section:
+                idx = _find_heading_index(lines, section)
+                if idx >= 0:
+                    pending_by_line.setdefault(idx, []).append(block)
+                    merged_slot_ids.append(slot_id)
+                    continue
             tail_blocks.append(block)
             merged_slot_ids.append(slot_id)
 

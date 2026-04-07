@@ -153,6 +153,32 @@ def main() -> int:
         raise SystemExit(f'{stderr}\n{stdout}'.strip())
 
     results = json.loads(proc.stdout)
+
+    # — Permanent fix: ensure every generated image has local_path persisted —
+    # OSS pre-signed URLs expire quickly (403 after ~1h).
+    # Download all successfully-generated images to local files so downstream
+    # merge and publish steps always have stable local paths, never a fleeting URL.
+    for r in results.get('results', []):
+        if r.get('status') != 'generated':
+            continue
+        local = str(r.get('local_path', '')).strip()
+        remote = str(r.get('remote_url', '')).strip()
+        if local and Path(local).expanduser().resolve().exists():
+            continue  # already have a valid local file
+        if not remote:
+            continue
+        # download to local
+        local_path = Path(output_dir) / (r.get('slot_id', 'image') + '.jpg')
+        try:
+            with httpx.Client(timeout=60.0, follow_redirects=True) as client:
+                resp = client.get(remote)
+                resp.raise_for_status()
+                local_path.write_bytes(resp.content)
+            r['local_path'] = str(local_path)
+            r['remote_url'] = ''   # local takes priority; clear the fragile remote URL
+        except Exception:
+            pass  # leave remote_url intact if download fails; publish will handle it
+
     merged_plan = merge_results(plan, results)
     merged_out = Path(args.merged_plan_output).expanduser().resolve() if args.merged_plan_output else output_dir / 'illustration-plan.generated.json'
     merged_out.write_text(json.dumps(merged_plan, ensure_ascii=False, indent=2), encoding='utf-8')
