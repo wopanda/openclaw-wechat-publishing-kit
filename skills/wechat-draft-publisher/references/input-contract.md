@@ -44,10 +44,16 @@
 
 1. 用户显式传入 `--thumb-media-id`
 2. 用户显式传入 `--cover-image`
-3. 配置项 `default_thumb_media_id`
-4. 正文中第一张本地可访问图片（自动取首图）
+3. 插图计划中的封面图
+4. 配置项 `default_thumb_media_id`
+5. 配置项 `default_cover_image_path`
+6. 正文中第一张本地可访问图片（自动取首图）
 
 如果以上都没有，微信大概率会因缺少有效封面而拒绝发布。
+
+说明：
+- `default_thumb_media_id` 适合已经上传到微信素材库的固定封面
+- `default_cover_image_path` 适合用户自己在本地保留一张兜底封面图，但不想把模板写死成所有人共用同一张图
 
 ---
 

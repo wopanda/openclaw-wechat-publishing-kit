@@ -223,8 +223,8 @@ def discover_publish_issues(
         issues.append({
             "code": "missing-cover",
             "level": "error",
-            "message": "缺少可用封面：没有显式封面，也没有默认 thumb_media_id，正文里也没有可自动取封面的图片",
-            "fix": "请传 --cover-image / --thumb-media-id，或在配置中设置 default_thumb_media_id",
+            "message": "缺少可用封面：没有显式封面，也没有默认 thumb_media_id / default_cover_image_path，正文里也没有可自动取封面的图片",
+            "fix": "请传 --cover-image / --thumb-media-id，或在配置中设置 default_thumb_media_id / default_cover_image_path",
         })
 
     if image_analysis["unresolved_local_image_count"] > 0:
@@ -244,11 +244,11 @@ def build_missing_cover_hint(body_image_report: dict) -> str:
         return (
             "缺少可用封面：当前文章没有可自动作为封面的已上传图片，且这些图片路径未解析/上传成功。"
             "请改成正确的本地路径，或显式提供 --cover-image / --thumb-media-id，"
-            "或在配置中设置 default_thumb_media_id"
+            "或在配置中设置 default_thumb_media_id / default_cover_image_path"
         )
     return (
         "缺少可用封面：请显式提供 --cover-image 或 --thumb-media-id，"
-        "或在配置中设置 default_thumb_media_id，"
+        "或在配置中设置 default_thumb_media_id / default_cover_image_path，"
         "或在正文中加入至少一张可访问的图片供自动取首图封面"
     )
 
@@ -584,7 +584,8 @@ async def main() -> int:
     explicit_thumb = (args.thumb_media_id or "").strip()
     default_thumb = (config.get("default_thumb_media_id", "") or "").strip()
     explicit_cover_image = (args.cover_image or "").strip()
-    cover_image = explicit_cover_image or plan_cover_image
+    default_cover_image = (config.get("default_cover_image_path", "") or "").strip()
+    cover_image = explicit_cover_image or plan_cover_image or default_cover_image
 
     thumb_media_id = explicit_thumb
     if explicit_thumb:
@@ -596,10 +597,13 @@ async def main() -> int:
     elif default_thumb:
         thumb_media_id = default_thumb
         cover_strategy = "default-thumb-media-id"
+    elif default_cover_image:
+        cover_strategy = "default-cover-image-upload"
     else:
         cover_strategy = "auto-first-body-image-or-missing"
 
     used_default_thumb = bool((not explicit_thumb) and (not cover_image) and default_thumb)
+    used_default_cover_image = bool((not explicit_thumb) and (not explicit_cover_image) and (not plan_cover_image) and (not default_thumb) and default_cover_image)
 
     explicit_image_state = (args.image_state or "").strip()
     configured_image_state = (config.get("default_image_state") or "").strip()
@@ -637,7 +641,7 @@ async def main() -> int:
         if image_state == "blocked-by-image":
             next_action = "当前 image_state=blocked-by-image：按发布门禁应先修复配图，再进入草稿箱"
         elif not explicit_thumb and not default_thumb and not cover_image and cover_candidate_count == 0:
-            next_action = "请提供 --cover-image 或 --thumb-media-id，或在配置中设置 default_thumb_media_id；否则微信大概率会因缺少有效封面而拒绝发布"
+            next_action = "请提供 --cover-image 或 --thumb-media-id，或在配置中设置 default_thumb_media_id / default_cover_image_path；否则微信大概率会因缺少有效封面而拒绝发布"
         elif image_analysis["unresolved_local_image_count"] > 0:
             next_action = "存在未解析成功的本地图片路径，请先修正图片路径，或改用 --asset-base-dir 指定素材根目录"
 
@@ -651,6 +655,8 @@ async def main() -> int:
             "cover_strategy": cover_strategy,
             "thumb_media_id": thumb_media_id,
             "used_default_thumb_media_id": used_default_thumb,
+            "default_cover_image_path": default_cover_image,
+            "used_default_cover_image": used_default_cover_image,
             "style_theme": theme_name,
             "accent_color": accent_color,
             "format_markdown": bool(config.get("format_markdown", True)),
@@ -733,14 +739,31 @@ async def main() -> int:
         content_html = formatter.format(body_with_remote_images) if config.get("format_markdown", True) else body_with_remote_images
 
         if not thumb_media_id and cover_image:
-            cover_path = Path(cover_image).expanduser().resolve()
+            cover_path = Path(cover_image).expanduser()
+            if not cover_path.is_absolute():
+                config_source = str(config.get("config_source", "") or "").strip()
+                if config_source and config_source != "defaults":
+                    config_path = Path(config_source).expanduser()
+                    config_base = config_path if config_path.is_dir() else config_path.parent
+                    candidate = (config_base / cover_path).resolve()
+                    if candidate.exists():
+                        cover_path = candidate
+                    else:
+                        cover_path = cover_path.resolve()
+                else:
+                    cover_path = cover_path.resolve()
+            else:
+                cover_path = cover_path.resolve()
             if not cover_path.exists():
                 return fail(f"封面图不存在: {cover_path}", title=title, author=author)
             compressor = ImageCompressor()
             compressed = compressor.compress(cover_path.read_bytes(), max_size_kb=64)
             upload_result = await client.upload_image(compressed, filename=f"{cover_path.stem or 'cover'}.jpg")
             thumb_media_id = upload_result.get("media_id", "")
-            cover_strategy = "cover-image-upload"
+            if used_default_cover_image:
+                cover_strategy = "default-cover-image-upload"
+            else:
+                cover_strategy = "cover-image-upload"
 
         if not thumb_media_id and auto_cover_media_id:
             thumb_media_id = auto_cover_media_id
@@ -779,6 +802,8 @@ async def main() -> int:
         "cover_strategy": cover_strategy,
         "thumb_media_id": thumb_media_id,
         "used_default_thumb_media_id": used_default_thumb,
+        "default_cover_image_path": default_cover_image,
+        "used_default_cover_image": used_default_cover_image,
         "style_theme": theme_name,
         "accent_color": accent_color,
         "body_image_placement": body_image_placement,

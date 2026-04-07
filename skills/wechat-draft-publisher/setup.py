@@ -56,6 +56,7 @@ def setup_minimal_config() -> tuple[dict, dict]:
     settings = {
         "author": author,
         "default_thumb_media_id": "",
+        "default_cover_image_path": "",
         "output_dir": None,
         "server_ip": None,
         "use_custom_prompts": False,

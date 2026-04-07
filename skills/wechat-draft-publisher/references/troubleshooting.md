@@ -23,7 +23,8 @@
 1. 最稳：显式传入 `--cover-image`
 2. 或显式传入 `--thumb-media-id`
 3. 或在配置中设置 `default_thumb_media_id`
-4. 或确保正文里至少有一张本地可访问图片，供自动取首图封面
+4. 或在配置中设置 `default_cover_image_path`
+5. 或确保正文里至少有一张本地可访问图片，供自动取首图封面
 
 ---
 

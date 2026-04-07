@@ -9,6 +9,7 @@ from typing import Any, Dict, List
 DEFAULTS: Dict[str, Any] = {
     "default_author": "日新",
     "default_thumb_media_id": "",
+    "default_cover_image_path": "",
     "default_tail_image_path": "",
     "default_signature_template_path": "",
     "default_body_images": [],
@@ -59,6 +60,7 @@ def _load_split_config(config_dir: Path) -> Dict[str, Any]:
         {
             "default_author": settings.get("author", DEFAULTS["default_author"]),
             "default_thumb_media_id": settings.get("default_thumb_media_id", DEFAULTS["default_thumb_media_id"]),
+            "default_cover_image_path": settings.get("default_cover_image_path", DEFAULTS["default_cover_image_path"]),
             "default_tail_image_path": settings.get("default_tail_image_path", DEFAULTS["default_tail_image_path"]),
             "default_signature_template_path": settings.get("default_signature_template_path", DEFAULTS["default_signature_template_path"]),
             "output_dir": settings.get("output_dir"),

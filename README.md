@@ -116,6 +116,7 @@ python3 ~/.openclaw/skills/wechat-draft-publisher/scripts/check_wechat_connectio
 ### Q4：封面图和文末尾图是固定的吗？
 不是一回事：
 - **封面图默认不固定**，但发布时必须有一个可用封面来源
+- 你也可以给自己单独配置一张**兜底封面图**（`default_cover_image_path`），但模板默认留空，不给所有新用户写死同一张图
 - **文末尾图现在默认不固定**，需要你自己显式配置才会带上
 
 也就是说：
