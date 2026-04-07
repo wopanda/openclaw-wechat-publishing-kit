@@ -121,4 +121,4 @@ def detect_author(explicit_author: str | None, default_author: str | None, markd
 
     if default_author and default_author.strip():
         return default_author.strip()
-    return "日新"
+    return ""

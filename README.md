@@ -57,13 +57,30 @@ bash install.sh
 - `secret`
 - `author`
 
-### 4) 连通性检查
+> 注意：作者名现在不会再静默默认成“日新”。
+> 如果 `settings.json` 里 `author` 还是空，建议你先填上自己的作者名，或在发布时显式传 `--author`。
+
+### 4) 确认作者名
+
+打开：
+
+```bash
+~/.openclaw/skills/wechat-draft-publisher/config/settings.json
+```
+
+确认里面的：
+
+```json
+"author": "你的作者名"
+```
+
+### 5) 连通性检查
 
 ```bash
 python3 ~/.openclaw/skills/wechat-draft-publisher/scripts/check_wechat_connection.py
 ```
 
-### 5) 直接用一句话开始
+### 6) 直接用一句话开始
 
 #### A. 纯文字发布
 ```text

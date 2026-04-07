@@ -27,6 +27,16 @@ def ask_with_default(prompt: str, default: str | None = None, required: bool = T
         return value
 
 
+def load_existing_settings() -> dict:
+    settings_file = Path(__file__).parent / "config" / "settings.json"
+    if not settings_file.exists():
+        return {}
+    try:
+        return json.loads(settings_file.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
 def save_config(credentials: dict, settings: dict) -> Path:
     config_dir = Path(__file__).parent / "config"
     config_dir.mkdir(parents=True, exist_ok=True)
@@ -40,6 +50,9 @@ def save_config(credentials: dict, settings: dict) -> Path:
 
 
 def setup_minimal_config() -> tuple[dict, dict]:
+    existing = load_existing_settings()
+    current_author = str(existing.get("author") or "").strip()
+
     print("这一步只收集发布草稿箱真正必需的信息。\n")
     print("你现在只需要准备 3 个东西：")
     print("  1) 公众号 AppID")
@@ -47,10 +60,15 @@ def setup_minimal_config() -> tuple[dict, dict]:
     print("  3) 默认作者名\n")
     print("💡 AppID / AppSecret 在微信公众平台里可以找到：")
     print("   设置与开发 > 基本配置\n")
+    if current_author:
+        print(f"当前检测到已有作者名：{current_author}")
+        print("如果你想沿用，直接回车；如果要改，就直接输入新值。\n")
+    else:
+        print("当前还没有设置作者名，建议这一步就填好。\n")
 
     appid = ask_with_default("请输入公众号 AppID")
     secret = ask_with_default("请输入公众号 AppSecret")
-    author = ask_with_default("文章默认作者名", "日新", required=False) or "日新"
+    author = ask_with_default("文章默认作者名", current_author or None, required=False) or ""
 
     credentials = {"wechat": {"appid": appid, "secret": secret}}
     settings = {
@@ -77,9 +95,10 @@ def main() -> int:
     config_dir = save_config(credentials, settings)
     print("\n✅ 设置完成。")
     print(f"   配置已保存到：{config_dir}")
-    print("\n建议你立刻做两步验证：")
-    print("  1) python3 scripts/check_wechat_connection.py")
-    print("  2) python3 scripts/publish_markdown.py --check --file /path/to/article.md --cover-image /path/to/cover.jpg")
+    print("\n建议你立刻做三步验证：")
+    print("  1) 确认 config/settings.json 里的 author 是否正确")
+    print("  2) python3 scripts/check_wechat_connection.py")
+    print("  3) python3 scripts/publish_markdown.py --check --file /path/to/article.md --cover-image /path/to/cover.jpg")
     print("\n说明：")
     print("- 这个 Skill 默认只负责发布到草稿箱")
     print("- 去 AI 味、润色、排版增强等能力，建议作为上游步骤接入")

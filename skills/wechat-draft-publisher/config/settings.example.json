@@ -1,6 +1,6 @@
 {
   "_comment": "publish-only 核心 Skill 的普通配置模板，可提交到 git",
-  "author": "Your Name",
+  "author": "",
   "default_thumb_media_id": "",
   "default_cover_image_path": "",
   "output_dir": "./output",

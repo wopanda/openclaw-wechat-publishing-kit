@@ -7,7 +7,7 @@ from typing import Any, Dict, List
 
 
 DEFAULTS: Dict[str, Any] = {
-    "default_author": "日新",
+    "default_author": "",
     "default_thumb_media_id": "",
     "default_cover_image_path": "",
     "default_tail_image_path": "",
