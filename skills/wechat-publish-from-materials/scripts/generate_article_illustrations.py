@@ -54,8 +54,9 @@ def build_slots_payload(plan: dict) -> dict:
             'scene_description': slot.get('scene_description'),
             'prompt': slot.get('prompt') or {
                 'zh_brief': slot.get('prompt_cn', ''),
-                'main_en': slot.get('prompt_main', ''),
-                'negative_en': slot.get('negative_prompt', ''),
+                'main_zh': slot.get('prompt_cn', ''),
+                'main_en': slot.get('prompt_en') or slot.get('prompt_main', ''),
+                'negative_en': slot.get('negative_prompt_en') or slot.get('negative_prompt', ''),
             },
             'prompt_main': slot.get('prompt_main', ''),
             'negative_prompt': slot.get('negative_prompt', ''),

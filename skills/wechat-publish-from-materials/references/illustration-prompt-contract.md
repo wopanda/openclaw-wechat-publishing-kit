@@ -20,8 +20,12 @@
   "visual_type": "对比图",
   "scene_description": "左边是手工链路，右边是系统先整理后人判断的新链路",
   "prompt_cn": "前后对比、手工流程 vs 系统流程、信息整理、判断提速、结构清晰",
-  "prompt": "side-by-side comparison of a fragmented manual workflow and a structured AI-assisted workflow, clear contrast in effort and clarity, business-tech editorial infographic style, 4:3",
-  "negative_prompt": "watermark, random text, blurry, messy composition, cluttered background, overdone sci-fi",
+  "prompt": {
+    "main_zh": "围绕旧流程与新流程做左右对比，突出结构化处理后的判断提速，编辑型信息图风格",
+    "main_en": "side-by-side comparison of a fragmented manual workflow and a structured AI-assisted workflow, clear contrast in effort and clarity, business-tech editorial infographic style, 4:3",
+    "negative_en": "watermark, random text, blurry, messy composition, cluttered background, overdone sci-fi"
+  },
+  "negative_prompt": "不要水印，不要中英文文字，不要模糊，不要杂乱背景",
   "aspect_ratio": "4:3",
   "style": "结构对比图 / 信息图",
   "caption": "差别不在信息量，而在是否还要自己先跑那一轮重复动作"
@@ -64,7 +68,7 @@
 
 ## V4 新增约束
 
-1. `main_en` 必须尽量保持英文主 prompt，不再把整段中文直接塞进去。
+1. `main_zh` 作为默认主 prompt；`main_en` 仅做 fallback，不再要求英文优先。
 2. 图位不是按 section 顺序机械截断，而是先给每个候选图位打优先级，再按密度筛选。
 3. 默认保留封面图；正文图按 `light / medium / heavy` 做优先级截断。
 4. prompt 包里应显式展示：为什么这里需要图、主画面、辅助元素、风格目标、优先级。

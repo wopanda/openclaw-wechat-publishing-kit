@@ -40,3 +40,8 @@
 - 可选继续走：`build_illustration_slots.py` → `generate_article_illustrations.py` → `merge_illustrations_into_article.py` / `publish_markdown.py --illustration-plan`
 - 如果想一条命令串起来，可直接跑 `scripts/run_illustrated_publish_flow.py`
 - 参考 `references/illustration-prompt-contract.md`
+
+### 结构化标题建议
+- 最稳方式：使用标准 Markdown 二级标题 `## 标题`
+- 当前也兼容把单独一行 `**加粗文本**` 识别为章节标题
+- 但如果要稳定生成图位、稳定插回正文，仍建议优先用 `## 标题`

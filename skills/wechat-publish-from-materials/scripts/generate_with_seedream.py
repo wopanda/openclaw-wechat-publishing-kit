@@ -46,17 +46,23 @@ def pick_size(slot: dict[str, Any]) -> str:
 def build_prompt(slot: dict[str, Any]) -> str:
     prompt_block = slot.get('prompt')
     if isinstance(prompt_block, dict):
-        main_primary = str(prompt_block.get('main_zh') or prompt_block.get('main_en') or '').strip()
+        main_zh = str(prompt_block.get('main_zh') or '').strip()
+        negative_zh = str(prompt_block.get('negative_zh') or '').strip()
+        main_en = str(prompt_block.get('main_en') or '').strip()
         negative_en = str(prompt_block.get('negative_en') or '').strip()
-        if main_primary and negative_en:
-            return f'{main_primary}, negative prompt: {negative_en}'
-        if main_primary:
-            return main_primary
+        if main_zh and negative_zh:
+            return f'{main_zh}。负面约束：{negative_zh}'
+        if main_zh:
+            return main_zh
+        if main_en and negative_en:
+            return f'{main_en}, negative prompt: {negative_en}'
+        if main_en:
+            return main_en
 
     prompt = str(prompt_block or '').strip()
     if prompt:
         return prompt
-    prompt_main = str(slot.get('prompt_main') or '').strip()
+    prompt_main = str(slot.get('prompt_main') or slot.get('prompt_cn') or slot.get('prompt_en') or '').strip()
     if prompt_main:
         return prompt_main
     title = slot.get('title', '')

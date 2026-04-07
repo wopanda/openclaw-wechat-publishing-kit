@@ -8,6 +8,7 @@ from pathlib import Path
 
 from illustration_core import (
     NEGATIVE_DEFAULT,
+    NEGATIVE_DEFAULT_ZH,
     article_claim,
     compose_prompt,
     compose_prompt_zh,
@@ -100,6 +101,7 @@ def build_slot(index: int, heading: str, content: str, article_title: str, claim
             'zh_brief': zh_brief,
             'main_zh': main_zh,
             'main_en': main_en,
+            'negative_zh': NEGATIVE_DEFAULT_ZH,
             'negative_en': NEGATIVE_DEFAULT,
         },
         'aspect_ratio': aspect,

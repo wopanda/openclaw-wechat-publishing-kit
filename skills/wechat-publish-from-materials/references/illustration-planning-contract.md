@@ -19,6 +19,11 @@
 4. prompt 先来自文章结构与段落任务，再来自风格要求。
 5. 当前没有生图也没关系，先把图位与 prompt 包做出来。
 
+## 章节识别约束（重要）
+
+推荐使用标准 Markdown 标题（`## 标题`）。
+当前也兼容把单独一行 `**加粗文本**` 识别为章节标题（容错兜底），但长期仍建议用 `##`，稳定性更高。
+
 ## 图位类型
 
 默认从下面 7 类里选：
@@ -50,8 +55,9 @@
   },
   "prompt": {
     "zh_brief": "中文设计说明",
-    "main_en": "英文主 prompt",
-    "negative_en": "英文 negative prompt"
+    "main_zh": "中文主 prompt（默认优先）",
+    "main_en": "英文 fallback prompt（可选）",
+    "negative_en": "英文 negative prompt（可选）"
   },
   "aspect_ratio": "4:3",
   "style": "business-tech editorial infographic",

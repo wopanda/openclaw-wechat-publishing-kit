@@ -123,11 +123,15 @@ def trim_prompt(text: str, limit: int) -> str:
 def build_prompt(slot: dict[str, Any], provider: str) -> str:
     prompt_block = slot.get('prompt')
     if isinstance(prompt_block, dict):
-        main_primary = str(prompt_block.get('main_zh') or prompt_block.get('main_en') or '').strip()
+        main_zh = str(prompt_block.get('main_zh') or '').strip()
+        negative_zh = str(prompt_block.get('negative_zh') or '').strip()
+        main_en = str(prompt_block.get('main_en') or '').strip()
         negative_en = str(prompt_block.get('negative_en') or '').strip()
-        prompt = main_primary
-        if main_primary and negative_en:
-            prompt = f'{main_primary}, negative prompt: {negative_en}'
+        prompt = main_zh or main_en
+        if main_zh and negative_zh:
+            prompt = f'{main_zh}。负面约束：{negative_zh}'
+        elif main_en and negative_en:
+            prompt = f'{main_en}, negative prompt: {negative_en}'
         if prompt:
             limit = PROVIDER_PRESETS.get(provider, PROVIDER_PRESETS['minimax']).get('prompt_limit', 1450)
             return trim_prompt(prompt, int(limit))
@@ -137,8 +141,8 @@ def build_prompt(slot: dict[str, Any], provider: str) -> str:
         limit = PROVIDER_PRESETS.get(provider, PROVIDER_PRESETS['minimax']).get('prompt_limit', 1450)
         return trim_prompt(prompt, int(limit))
 
-    prompt_main = str(slot.get('prompt_main') or '').strip()
-    negative_prompt = str(slot.get('negative_prompt') or '').strip()
+    prompt_main = str(slot.get('prompt_main') or slot.get('prompt_cn') or slot.get('prompt_en') or '').strip()
+    negative_prompt = str(slot.get('negative_prompt') or slot.get('negative_prompt_en') or '').strip()
     if prompt_main:
         composed = f'{prompt_main}, negative prompt: {negative_prompt}' if negative_prompt else prompt_main
         # MiniMax: inject no-text constraint if negative prompt is still empty after user-supplied merge

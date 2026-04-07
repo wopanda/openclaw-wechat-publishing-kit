@@ -94,14 +94,21 @@ def _render_slot_markdown(slot: dict[str, Any]) -> str:
 
 def _find_heading_index(lines: list[str], heading_text: str) -> int:
     target = re.sub(r'^#+\s*', '', heading_text.strip())
+    target = re.sub(r'^\*\*(.+?)\*\*$', r'\1', target).strip()
     if not target:
         return -1
     for idx, line in enumerate(lines):
         stripped = line.strip()
-        if not stripped.startswith('#'):
+        current = ''
+        if stripped.startswith('#'):
+            current = re.sub(r'^#+\s*', '', stripped)
+        else:
+            bold_match = re.match(r'^\*\*(.+?)\*\*$', stripped)
+            if bold_match:
+                current = bold_match.group(1).strip()
+        if not current:
             continue
-        current = re.sub(r'^#+\s*', '', stripped)
-        if current == target or target in current:
+        if current == target or target in current or current in target:
             return idx
     return -1
 
@@ -137,8 +144,8 @@ def merge_illustrations_into_markdown(markdown_body: str, plan: dict[str, Any]) 
                 pending_by_line.setdefault(idx, []).append(block)
                 merged_slot_ids.append(slot_id)
             else:
-                # Try fuzzy match: use section name as fallback heading
-                section = str(slot.get('section', '') or '').strip()
+                # Try fuzzy match: use section name/title as fallback heading
+                section = str(slot.get('section', '') or slot.get('title', '') or '').strip()
                 if section:
                     idx = _find_heading_index(lines, section)
                     if idx >= 0:
@@ -149,8 +156,8 @@ def merge_illustrations_into_markdown(markdown_body: str, plan: dict[str, Any]) 
                 unmatched_heading_slot_ids.append(slot_id)
                 merged_slot_ids.append(slot_id)
         else:
-            # No heading specified — try section as fallback before tailing
-            section = str(slot.get('section', '') or '').strip()
+            # No heading specified — try section/title as fallback before tailing
+            section = str(slot.get('section', '') or slot.get('title', '') or '').strip()
             if section:
                 idx = _find_heading_index(lines, section)
                 if idx >= 0:
