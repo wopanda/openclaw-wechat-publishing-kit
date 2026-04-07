@@ -68,16 +68,43 @@ def build_slots_payload(plan: dict) -> dict:
     }
 
 
-def merge_results(plan: dict, results: dict) -> dict:
+def _ensure_local_path(slot_id: str, remote_url: str, output_dir: Path) -> str:
+    """Download a remote URL to local file and return the local path. No-op on error."""
+    if not remote_url:
+        return ''
+    import httpx
+    try:
+        ext = '.jpg'
+        if '.png' in remote_url.lower():
+            ext = '.png'
+        local = output_dir / f'{slot_id}{ext}'
+        if local.exists():
+            return str(local)
+        resp = httpx.get(remote_url, timeout=60.0, follow_redirects=True)
+        resp.raise_for_status()
+        local.write_bytes(resp.content)
+        return str(local)
+    except Exception:
+        return ''
+
+
+def merge_results(plan: dict, results: dict, output_dir: Path | None = None) -> dict:
     mapping = {item.get('slot_id'): item for item in results.get('results', [])}
+    out = Path(output_dir) if output_dir else Path('/tmp')
     merged_slots = []
     for slot in plan.get('slots', []):
         result = mapping.get(slot.get('slot_id'), {})
         merged = dict(slot)
         if result:
+            local_path = result.get('local_path', '')
+            remote_url = result.get('remote_url', '')
+            # If local_path is missing but remote_url is available, download it
+            if not local_path and remote_url:
+                slot_id = result.get('slot_id', slot.get('slot_id', 'image'))
+                local_path = _ensure_local_path(slot_id, remote_url, output_dir)
             merged.update({
                 'status': result.get('status', slot.get('status', 'generated')),
-                'local_path': result.get('local_path', slot.get('local_path', '')),
+                'local_path': local_path or slot.get('local_path', ''),
                 'generation_reason': result.get('reason', ''),
             })
         merged_slots.append(merged)
@@ -179,7 +206,7 @@ def main() -> int:
         except Exception:
             pass  # leave remote_url intact if download fails; publish will handle it
 
-    merged_plan = merge_results(plan, results)
+    merged_plan = merge_results(plan, results, output_dir)
     merged_out = Path(args.merged_plan_output).expanduser().resolve() if args.merged_plan_output else output_dir / 'illustration-plan.generated.json'
     merged_out.write_text(json.dumps(merged_plan, ensure_ascii=False, indent=2), encoding='utf-8')
     print(json.dumps({
