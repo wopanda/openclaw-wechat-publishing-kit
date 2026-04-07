@@ -130,7 +130,7 @@ def merge_illustrations_into_markdown(markdown_body: str, plan: dict[str, Any]) 
         if src and src in markdown_body:
             skipped_slot_ids.append(slot_id)
             continue
-        heading = str(slot.get('insert_after_heading') or slot.get('section_heading') or slot.get('after_heading') or '').strip()
+        heading = str(slot.get('insert_after_heading') or slot.get('position') or slot.get('section_heading') or slot.get('after_heading') or '').strip()
         if heading:
             idx = _find_heading_index(lines, heading)
             if idx >= 0:

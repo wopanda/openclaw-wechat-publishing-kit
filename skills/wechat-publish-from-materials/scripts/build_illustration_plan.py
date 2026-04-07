@@ -7,8 +7,10 @@ from pathlib import Path
 
 from illustration_core import (
     NEGATIVE_DEFAULT,
+    NEGATIVE_DEFAULT_ZH,
     article_claim,
     compose_prompt,
+    compose_prompt_zh,
     default_aspect,
     default_body_limit,
     extract_title,
@@ -17,10 +19,13 @@ from illustration_core import (
     pick_visual_type,
     purpose_en,
     purpose_text,
+    purpose_zh,
     scene_hint_en,
+    scene_hint_zh,
     section_priority,
     split_sections,
     style_goal,
+    style_goal_zh,
     supporting_elements,
     supporting_elements_en,
     summarize,
@@ -41,16 +46,26 @@ def build_plan(article_text: str, title: str, density: str, max_body_slots: int)
         visual_type = pick_visual_type(heading, content, is_cover=is_cover, is_last=idx == len(sections) - 1)
         aspect = default_aspect(visual_type, density)
         style = style_goal(visual_type)
+        style_zh = style_goal_zh(visual_type)
         purpose = purpose_text(heading, visual_type, is_cover=is_cover)
         hero_scene = hero_scene_for_cover(title, claim) if is_cover else hero_scene_for_section(heading, content, visual_type)
         element_labels = supporting_elements(f'{heading} {content}')
-        prompt = compose_prompt(
+        element_labels_en = supporting_elements_en(element_labels)
+        prompt_en = compose_prompt(
             visual_type,
             scene_hint_en(heading, content, visual_type, is_cover=is_cover),
             purpose_en(visual_type),
             style,
             aspect,
-            supporting_elements_en(element_labels),
+            element_labels_en,
+        )
+        prompt_zh = compose_prompt_zh(
+            visual_type,
+            scene_hint_zh(heading, content, visual_type, is_cover=is_cover),
+            purpose_zh(visual_type),
+            style_zh,
+            aspect,
+            element_labels,
         )
         priority = 999 if is_cover else section_priority(heading, content, visual_type, idx, len(sections))
 
@@ -58,6 +73,7 @@ def build_plan(article_text: str, title: str, density: str, max_body_slots: int)
             'slot_id': 'cover_01' if is_cover else f'sec{idx+1:02d}_img_01',
             'title': '封面插图' if is_cover else heading,
             'insert_after_heading': '' if is_cover else heading,
+            'position': '' if is_cover else heading,
             'purpose': purpose,
             'visual_type': visual_type,
             'scene_description': hero_scene,
@@ -68,12 +84,15 @@ def build_plan(article_text: str, title: str, density: str, max_body_slots: int)
                 'supporting_elements': element_labels,
                 'style_goal': style,
             },
-            'prompt_cn': f'{visual_type}｜主画面：{hero_scene}｜用途：{purpose}',
+            'prompt_cn': prompt_zh,
+            'prompt_en': prompt_en,
             'aspect_ratio': aspect,
             'style': style,
+            'style_zh': style_zh,
             'caption': purpose,
-            'negative_prompt': NEGATIVE_DEFAULT,
-            'prompt': prompt,
+            'negative_prompt': NEGATIVE_DEFAULT_ZH,
+            'negative_prompt_en': NEGATIVE_DEFAULT,
+            'prompt': prompt_zh,
             'source_paragraph': claim if is_cover else summarize(content, 120),
             'image_state': 'article-specific',
             'priority': priority,

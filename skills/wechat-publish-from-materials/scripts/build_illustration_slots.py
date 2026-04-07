@@ -10,6 +10,7 @@ from illustration_core import (
     NEGATIVE_DEFAULT,
     article_claim,
     compose_prompt,
+    compose_prompt_zh,
     default_aspect,
     default_body_limit,
     extract_title,
@@ -18,10 +19,13 @@ from illustration_core import (
     pick_visual_type,
     purpose_en,
     purpose_text,
+    purpose_zh,
     scene_hint_en,
+    scene_hint_zh,
     section_priority,
     split_sections,
     style_goal,
+    style_goal_zh,
     supporting_elements,
     supporting_elements_en,
     summarize,
@@ -65,6 +69,14 @@ def build_slot(index: int, heading: str, content: str, article_title: str, claim
         aspect,
         element_en,
     )
+    main_zh = compose_prompt_zh(
+        visual_type,
+        scene_hint_zh(heading, content, visual_type, is_cover=is_cover),
+        purpose_zh(visual_type),
+        style_goal_zh(visual_type),
+        aspect,
+        element_labels,
+    )
     priority = 999 if is_cover else section_priority(heading, content, visual_type, index, total_sections)
 
     return {
@@ -82,8 +94,11 @@ def build_slot(index: int, heading: str, content: str, article_title: str, claim
             'supporting_elements': element_labels,
             'style_goal': style,
         },
+        'insert_after_heading': '' if is_cover else heading,
+        'position': '' if is_cover else heading,
         'prompt': {
             'zh_brief': zh_brief,
+            'main_zh': main_zh,
             'main_en': main_en,
             'negative_en': NEGATIVE_DEFAULT,
         },
@@ -112,7 +127,10 @@ def render_prompt_md(article_title: str, slots: list[dict]) -> str:
             f"- 优先级：{slot.get('priority', 0)}",
             f"- 中文设计说明：{prompt['zh_brief']}",
             '',
-            '### Main prompt (EN)',
+            '### Main prompt (ZH)',
+            prompt.get('main_zh', prompt['main_en']),
+            '',
+            '### Main prompt (EN fallback)',
             prompt['main_en'],
             '',
             '### Negative prompt (EN)',

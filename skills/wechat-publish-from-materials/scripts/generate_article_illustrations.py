@@ -43,11 +43,13 @@ def load_plan(path: Path) -> dict:
 def build_slots_payload(plan: dict) -> dict:
     slots = []
     for slot in plan.get('slots', []):
+        anchor = slot.get('insert_after_heading') or slot.get('position', '')
         slots.append({
             'slot_id': slot.get('slot_id'),
             'title': slot.get('title'),
             'purpose': slot.get('purpose'),
-            'position': slot.get('insert_after_heading') or slot.get('position', ''),
+            'insert_after_heading': anchor,
+            'position': anchor,
             'visual_type': slot.get('visual_type'),
             'scene_description': slot.get('scene_description'),
             'prompt': slot.get('prompt') or {

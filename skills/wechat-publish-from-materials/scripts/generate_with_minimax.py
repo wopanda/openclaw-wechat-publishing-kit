@@ -123,11 +123,11 @@ def trim_prompt(text: str, limit: int) -> str:
 def build_prompt(slot: dict[str, Any], provider: str) -> str:
     prompt_block = slot.get('prompt')
     if isinstance(prompt_block, dict):
-        main_en = str(prompt_block.get('main_en') or '').strip()
+        main_primary = str(prompt_block.get('main_zh') or prompt_block.get('main_en') or '').strip()
         negative_en = str(prompt_block.get('negative_en') or '').strip()
-        prompt = main_en
-        if main_en and negative_en:
-            prompt = f'{main_en}, negative prompt: {negative_en}'
+        prompt = main_primary
+        if main_primary and negative_en:
+            prompt = f'{main_primary}, negative prompt: {negative_en}'
         if prompt:
             limit = PROVIDER_PRESETS.get(provider, PROVIDER_PRESETS['minimax']).get('prompt_limit', 1450)
             return trim_prompt(prompt, int(limit))

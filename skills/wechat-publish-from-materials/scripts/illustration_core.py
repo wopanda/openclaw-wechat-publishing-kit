@@ -9,6 +9,11 @@ NEGATIVE_DEFAULT = (
     'neon cyberpunk, garish colors, too many visual elements'
 )
 
+NEGATIVE_DEFAULT_ZH = (
+    '不要水印，不要中文文字，不要英文文字，不要数字，不要 logo，不要签名，不要标签，'
+    '不要模糊，不要低清晰度，不要杂乱背景，不要无关人物，不要廉价广告感，不要赛博朋克霓虹，不要过度花哨'
+)
+
 PURPOSE_MAP = {
     '封面图': '建立主题感',
     '对比图': '展示变化或差异',
@@ -37,6 +42,16 @@ STYLE_MAP = {
     '证据图': 'report-style evidence cards, premium professional visual, readable hierarchy',
     '案例场景图': 'editorial scene illustration, grounded modern workplace visual, restrained colors',
     '收口图': 'restrained premium ending visual, calm strong finish, symbolic but clear',
+}
+
+STYLE_ZH_MAP = {
+    '封面图': '编辑型封面感，商务科技气质，主体明确，预留标题空间，不要广告海报风',
+    '对比图': '编辑型对比信息图，左右关系清楚，重点差异一眼可见，画面干净',
+    '流程图': '步骤链路清楚，流程关系明确，像高质量编辑插图，不要复杂流程软件截图风',
+    '结构图': '结构关系清楚，模块分层明确，信息架构感强，克制配色',
+    '证据图': '像报告中的证据卡片，层级清楚，专业可信，不要花哨宣传风',
+    '案例场景图': '真实工作场景感，现代办公室或数字工作台氛围，克制专业',
+    '收口图': '结尾收束感强，克制、有判断感，适合作为文章最后一张图',
 }
 
 ASPECT_MAP = {
@@ -84,6 +99,16 @@ DOMAIN_MOTIFS = {
     'evidence cards': ['数据', '证据', '事实', '截图'],
     'digital workspace': ['系统', '界面', '后台', '工作台', '页面'],
     'team collaboration': ['团队', '协作', '用户', '作者', '运营'],
+}
+
+DOMAIN_MOTIFS_ZH = {
+    '内容卡片': ['内容', '文章', '段落', '写作', '稿件'],
+    '插图区块': ['插图', '配图', '图片', '图位'],
+    '流程链路': ['流程', '链路', '步骤', '工作流'],
+    '模块结构': ['结构', '框架', '模块', '系统'],
+    '证据卡片': ['数据', '证据', '事实', '截图'],
+    '数字工作台': ['系统', '界面', '后台', '工作台', '页面'],
+    '团队协作': ['团队', '协作', '用户', '作者', '运营'],
 }
 
 
@@ -142,6 +167,25 @@ def article_claim(markdown_text: str, title: str) -> str:
     return clean[:72] or title
 
 
+def _extract_markdown_heading(stripped: str) -> tuple[str, int] | None:
+    match = re.match(r'^(#{2,6})\s+(.+?)\s*$', stripped)
+    if not match:
+        return None
+    return match.group(2).strip(), len(match.group(1))
+
+
+def _extract_bold_heading(stripped: str) -> tuple[str, int] | None:
+    match = re.match(r'^\*\*(.+?)\*\*$' , stripped)
+    if not match:
+        return None
+    heading = clean_text(match.group(1))
+    if not heading:
+        return None
+    if len(heading) > 40:
+        return None
+    return heading, 2
+
+
 def split_sections(markdown_text: str) -> list[dict]:
     lines = markdown_text.splitlines()
     sections: list[dict] = []
@@ -155,13 +199,16 @@ def split_sections(markdown_text: str) -> list[dict]:
         if stripped.startswith('# '):
             seen_title = True
             continue
-        if re.match(r'^##+#?\s+', stripped):
+
+        heading_info = _extract_markdown_heading(stripped) or _extract_bold_heading(stripped)
+        if heading_info:
             if clean_text('\n'.join(buffer)):
                 sections.append({'heading': current_heading, 'content': '\n'.join(buffer).strip(), 'level': level})
-            current_heading = re.sub(r'^##+#?\s*', '', stripped)
-            level = stripped.count('#', 0, stripped.find(' '))
+            current_heading, level = heading_info
             buffer = []
+            seen_title = True
             continue
+
         if not seen_title and not stripped:
             continue
         buffer.append(raw)
@@ -223,6 +270,14 @@ def infer_motifs(text: str, limit: int = 3) -> list[str]:
     return found[:limit] or ['editorial composition']
 
 
+def infer_motifs_zh(text: str, limit: int = 3) -> list[str]:
+    found: list[str] = []
+    for label, keywords in DOMAIN_MOTIFS_ZH.items():
+        if any(k in text for k in keywords):
+            found.append(label)
+    return found[:limit] or ['编辑型构图']
+
+
 def hero_scene_for_cover(title: str, claim: str) -> str:
     return f'{title} 的主题画面，核心判断：{claim[:40]}'
 
@@ -260,6 +315,24 @@ def scene_hint_en(title: str, content: str, visual_type: str, *, is_cover: bool 
     return f'grounded editorial scene, using {motif_text}'
 
 
+def scene_hint_zh(title: str, content: str, visual_type: str, *, is_cover: bool = False) -> str:
+    motifs = infer_motifs_zh(f'{title} {content}')
+    motif_text = '、'.join(motifs)
+    if is_cover:
+        return f'围绕文章主题做一张编辑型核心画面，包含 {motif_text}'
+    if visual_type == '对比图':
+        return f'围绕“{title}”做新旧状态或前后差异对比，包含 {motif_text}'
+    if visual_type == '流程图':
+        return f'围绕“{title}”做步骤链路表达，包含 {motif_text}'
+    if visual_type == '结构图':
+        return f'围绕“{title}”做模块结构关系表达，包含 {motif_text}'
+    if visual_type == '证据图':
+        return f'围绕“{title}”做证据承接表达，包含 {motif_text}'
+    if visual_type == '收口图':
+        return f'围绕“{title}”做结尾收束表达，包含 {motif_text}'
+    return f'围绕“{title}”做真实场景化表达，包含 {motif_text}'
+
+
 def default_aspect(visual_type: str, density: str = 'medium') -> str:
     if density == 'heavy' and visual_type in {'证据图', '案例场景图'}:
         return '1:1'
@@ -277,8 +350,16 @@ def purpose_en(visual_type: str) -> str:
     return PURPOSE_EN_MAP.get(visual_type, 'support the article progression')
 
 
+def purpose_zh(visual_type: str) -> str:
+    return PURPOSE_MAP.get(visual_type, '服务正文推进')
+
+
 def style_goal(visual_type: str) -> str:
     return STYLE_MAP.get(visual_type, 'business-tech editorial illustration, restrained palette')
+
+
+def style_goal_zh(visual_type: str) -> str:
+    return STYLE_ZH_MAP.get(visual_type, '编辑型配图，克制专业，避免广告感和杂乱背景')
 
 
 def compose_prompt(visual_type: str, scene_hint: str, purpose_hint: str, style: str, aspect: str, elements: Iterable[str]) -> str:
@@ -297,6 +378,24 @@ def compose_prompt(visual_type: str, scene_hint: str, purpose_hint: str, style: 
     if visual_type == '收口图':
         return f'{base}, calm strong ending image, {aspect}'
     return f'{base}, clean composition, {aspect}'
+
+
+def compose_prompt_zh(visual_type: str, scene_hint: str, purpose_hint: str, style: str, aspect: str, elements: Iterable[str]) -> str:
+    extras = '、'.join(elements) if elements else '少量必要辅助元素'
+    base = f'{scene_hint}；辅助元素：{extras}；风格要求：{style}；用途：{purpose_hint}；画幅：{aspect}'
+    if visual_type == '封面图':
+        return f'{base}；主体聚焦明确，预留标题空间，画面不要出现英文或中文文字。'
+    if visual_type == '对比图':
+        return f'{base}；画面左右对照清楚，差异一眼可见，不要做成广告海报。'
+    if visual_type == '流程图':
+        return f'{base}；步骤关系清楚，流向明确，不要出现复杂 UI 截图或英文标签。'
+    if visual_type == '结构图':
+        return f'{base}；模块层级清楚，结构关系明确，不要堆太多元素。'
+    if visual_type == '证据图':
+        return f'{base}；强调可信、专业、层级清楚，不要做成营销宣传图。'
+    if visual_type == '收口图':
+        return f'{base}；强调结尾收束感和判断感，画面克制，不要花哨。'
+    return f'{base}；真实、克制、专业，不要文字水印，不要杂乱背景。'
 
 
 def section_priority(heading: str, content: str, visual_type: str, index: int, total: int) -> int:
