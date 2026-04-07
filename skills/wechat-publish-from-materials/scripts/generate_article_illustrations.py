@@ -101,7 +101,7 @@ def merge_results(plan: dict, results: dict, output_dir: Path | None = None) -> 
             # If local_path is missing but remote_url is available, download it
             if not local_path and remote_url:
                 slot_id = result.get('slot_id', slot.get('slot_id', 'image'))
-                local_path = _ensure_local_path(slot_id, remote_url, output_dir)
+                local_path = _ensure_local_path(slot_id, remote_url, out)
             merged.update({
                 'status': result.get('status', slot.get('status', 'generated')),
                 'local_path': local_path or slot.get('local_path', ''),
