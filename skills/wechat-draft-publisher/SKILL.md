@@ -56,14 +56,15 @@ description: 把已经写好的 Markdown 或整理好的公众号正文，推进
 
 ## 发布前最小检查顺序
 
-1. 运行 `scripts/check_wechat_connection.py` 检查 AppID / AppSecret / 网络连通性
-2. 运行 `scripts/publish_markdown.py --check ...`
-3. 看 `cover_strategy`、`body_image_count`、`image_state`、`next_action`
-4. 在上层前台显式说明：
+1. 运行 `scripts/check_wechat_connection.py --all` 检查 AppID / AppSecret / 网络连通性，并识别失效配置
+2. 运行 `scripts/check_publish_readiness.py ...` 做发布前校核（配置、封面、正文图、尾图、image_state、尾图一致性）
+3. 运行 `scripts/publish_markdown.py --check ...`
+4. 看 `cover_strategy`、`body_image_count`、`image_state`、`next_action`
+5. 在上层前台显式说明：
    - 当前模式：快速草稿模式 / 正式成品模式
    - 当前配图状态：article-specific / fallback-approved / text-only / blocked-by-image
    - 若为兜底图，必须直接说明“本轮使用兜底图，不是本文专属生图”
-5. 确认后再正式发布
+6. 确认后再正式发布
 
 ## 输出要求
 

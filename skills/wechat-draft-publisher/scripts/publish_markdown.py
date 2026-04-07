@@ -178,9 +178,65 @@ def insert_body_images(markdown_body: str, body_images: list[str], placement: st
         return _insert_after_first_h2(markdown_body, image_block), selected
     if placement == "after-intro":
         return _insert_after_intro(markdown_body, image_block), selected
+    if placement == "before-signature":
+        signature_marker = "\n\n---\n\n"
+        if signature_marker in markdown_body:
+            body, signature = markdown_body.rsplit(signature_marker, 1)
+            merged = f"{body.rstrip()}\n\n{image_block}\n\n---\n\n{signature.lstrip()}"
+            return merged.rstrip() + "\n", selected
 
     body = markdown_body.rstrip()
     return f"{body}\n\n{image_block}\n", selected
+
+
+
+def discover_publish_issues(
+    *,
+    config: dict,
+    explicit_thumb: str,
+    default_thumb: str,
+    cover_image: str,
+    image_state: str,
+    image_analysis: dict,
+    tail_image_src: str | None,
+) -> list[dict]:
+    issues: list[dict] = []
+    cover_candidate_count = sum(1 for item in image_analysis["sources"] if item["src"] != tail_image_src)
+
+    if not config.get("wechat_appid") or not config.get("wechat_secret"):
+        issues.append({
+            "code": "missing-wechat-config",
+            "level": "error",
+            "message": "缺少微信配置：wechat_appid / wechat_secret",
+            "fix": "请提供有效的发布配置目录，或修复自动发现到的 config",
+        })
+
+    if image_state == "blocked-by-image":
+        issues.append({
+            "code": "blocked-by-image",
+            "level": "error",
+            "message": "当前配图状态为 blocked-by-image，按门禁不应继续发布",
+            "fix": "请先修复专属配图，或明确降级为 text-only / fallback-approved",
+        })
+
+    if not explicit_thumb and not default_thumb and not cover_image and cover_candidate_count == 0:
+        issues.append({
+            "code": "missing-cover",
+            "level": "error",
+            "message": "缺少可用封面：没有显式封面，也没有默认 thumb_media_id，正文里也没有可自动取封面的图片",
+            "fix": "请传 --cover-image / --thumb-media-id，或在配置中设置 default_thumb_media_id",
+        })
+
+    if image_analysis["unresolved_local_image_count"] > 0:
+        issues.append({
+            "code": "unresolved-local-images",
+            "level": "error",
+            "message": "存在未解析成功的本地图片路径",
+            "fix": "请修正本地图片路径，或传 --asset-base-dir 指定素材根目录",
+            "sources": [item["src"] for item in image_analysis["sources"] if item["kind"] == "local" and not item["exists"]],
+        })
+
+    return issues
 
 
 def build_missing_cover_hint(body_image_report: dict) -> str:
@@ -341,6 +397,34 @@ async def upload_body_images(
 
             local_path = resolve_local_image(src, article_file=article_file, asset_base_dir=asset_base_dir)
             if local_path is None:
+                # Remote URL — download, upload to WeChat, then use returned media_id
+                if src.startswith(("http://", "https://")):
+                    try:
+                        with httpx.Client(timeout=30.0, follow_redirects=True) as _img_client:
+                            _img_resp = _img_client.get(src)
+                            _img_resp.raise_for_status()
+                        _img_bytes = _img_resp.content
+                        _tmp_path = Path(f"/tmp/_wechat_upload_{abs(hash(src))}.jpg")
+                        _tmp_path.write_bytes(_img_bytes)
+                        _upload_bytes, _upload_name = compressor.compress_for_wechat_upload(_img_bytes, filename=_tmp_path.name)
+                        _upload_result = await client.upload_image(_upload_bytes, filename=_upload_name)
+                        _url = _upload_result.get("url", "")
+                        _media_id = _upload_result.get("media_id", "")
+                        if _media_id:
+                            src_to_media[src] = _media_id
+                            uploaded.append(src)
+                        elif _url:
+                            src_to_url[src] = _url
+                            remote_uploaded.append(src)
+                        else:
+                            remote_passthrough.append(src)
+                            failures.append({"src": src, "reason": "微信上传后无 url/media_id 返回"})
+                        _tmp_path.unlink(missing_ok=True)
+                        continue
+                    except Exception as _exc:
+                        remote_passthrough.append(src)
+                        failures.append({"src": src, "reason": f"远程图片下载或上传失败: {_exc}"})
+                        continue
                 unresolved.append(src)
                 failures.append({"src": src, "reason": "本地图片路径未解析成功"})
                 continue
@@ -474,10 +558,8 @@ async def main() -> int:
     strict_illustration = bool(args.strict_illustration or config.get("strict_illustration", False))
 
     body_image_placement = (args.body_image_placement or config.get("body_image_placement") or "before-ending").strip()
-    if body_image_placement == "before-ending":
-        body_image_placement = "before-signature"
-    elif body_image_placement not in {"after-first-h2", "before-signature", "after-intro"}:
-        body_image_placement = "before-signature"
+    if body_image_placement not in {"after-first-h2", "before-signature", "after-intro", "before-ending"}:
+        body_image_placement = "before-ending"
 
     article_body, inserted_body_images = insert_body_images(
         markdown_body=article_body,

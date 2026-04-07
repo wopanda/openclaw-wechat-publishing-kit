@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 
 DEFAULTS: Dict[str, Any] = {
@@ -12,7 +13,7 @@ DEFAULTS: Dict[str, Any] = {
     "default_signature_template_path": "",
     "default_body_images": [],
     "max_body_images": 1,
-    "body_image_placement": "before-signature",
+    "body_image_placement": "before-ending",
     "default_image_state": "text-only",
     "weixin_api_base": "https://api.weixin.qq.com",
     "format_markdown": True,
@@ -20,10 +21,6 @@ DEFAULTS: Dict[str, Any] = {
     "upload_remote_images": True,
     "style_theme": "wechat-pro",
     "accent_color": "#1f9d55",
-    "default_body_images": [],
-    "max_body_images": 1,
-    "body_image_placement": "before-ending",
-    "default_image_state": "text-only",
     "strict_illustration": False,
 }
 
@@ -41,6 +38,10 @@ def _read_json(path: Path) -> Dict[str, Any]:
         return json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
         raise ConfigError(f"配置文件 JSON 解析失败: {path}: {exc}") from exc
+
+
+def _is_split_config_dir(path: Path) -> bool:
+    return path.is_dir() and ((path / "settings.json").exists() or (path / "credentials.json").exists())
 
 
 def _load_split_config(config_dir: Path) -> Dict[str, Any]:
@@ -73,10 +74,6 @@ def _load_split_config(config_dir: Path) -> Dict[str, Any]:
             "upload_remote_images": settings.get("upload_remote_images", DEFAULTS["upload_remote_images"]),
             "style_theme": settings.get("style_theme", DEFAULTS["style_theme"]),
             "accent_color": settings.get("accent_color", DEFAULTS["accent_color"]),
-            "default_body_images": settings.get("default_body_images", DEFAULTS["default_body_images"]),
-            "max_body_images": settings.get("max_body_images", DEFAULTS["max_body_images"]),
-            "body_image_placement": settings.get("body_image_placement", DEFAULTS["body_image_placement"]),
-            "default_image_state": settings.get("default_image_state", DEFAULTS["default_image_state"]),
             "strict_illustration": settings.get("strict_illustration", DEFAULTS["strict_illustration"]),
             "wechat_appid": credentials.get("wechat", {}).get("appid", ""),
             "wechat_secret": credentials.get("wechat", {}).get("secret", ""),
@@ -98,20 +95,50 @@ def _load_single_json(path: Path) -> Dict[str, Any]:
     return merged
 
 
+def discover_config_candidates(explicit_path: str | None = None) -> List[Path]:
+    if explicit_path:
+        return [Path(explicit_path).expanduser()]
+
+    env_candidates = [
+        os.getenv("OPENCLAW_WECHAT_PUBLISH_CONFIG", "").strip(),
+        os.getenv("WECHAT_PUBLISH_CONFIG", "").strip(),
+    ]
+    builtins = [
+        "/tmp/openclaw/wechat-publish-config",
+        str(Path.home() / ".local/openclaw-wechat-publisher/config"),
+        str(_skill_root() / "config"),
+    ]
+
+    candidates: List[Path] = []
+    seen = set()
+    for raw in [*env_candidates, *builtins]:
+        if not raw:
+            continue
+        path = Path(raw).expanduser()
+        key = str(path)
+        if key in seen:
+            continue
+        seen.add(key)
+        if path.is_file() or _is_split_config_dir(path):
+            candidates.append(path)
+    return candidates
+
+
 def load_config(config_path: str | None) -> Dict[str, Any]:
     if config_path:
-        candidate = Path(config_path)
+        candidate = Path(config_path).expanduser()
         if candidate.is_dir():
             return _load_split_config(candidate)
         if candidate.exists():
             return _load_single_json(candidate)
         raise ConfigError(f"配置路径不存在: {candidate}")
 
-    local_config_dir = _skill_root() / "config"
-    settings_file = local_config_dir / "settings.json"
-    credentials_file = local_config_dir / "credentials.json"
-    if settings_file.exists() or credentials_file.exists():
-        return _load_split_config(local_config_dir)
+    candidates = discover_config_candidates()
+    for candidate in candidates:
+        try:
+            return load_config(str(candidate))
+        except ConfigError:
+            continue
 
     merged = dict(DEFAULTS)
     merged["config_source"] = "defaults"
