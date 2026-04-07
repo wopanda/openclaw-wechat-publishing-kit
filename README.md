@@ -1,305 +1,119 @@
 # OpenClaw WeChat Publishing Kit
 
-这是一个给 OpenClaw 使用的 **skills 交付包**。  
-它会把你的**个人资料 + 参考内容 + 公众号配置**，整理成一篇适合你口吻的公众号文章，并送进**微信公众号草稿箱**。
+给 OpenClaw 用的公众号发布技能包。
 
-这是一个真正极简版：
-**只保留两段能力：资料整理、草稿箱发布。**
-
-## 你只需要准备什么
-
-第一次接入，只准备这 3 项：
-
-### 1. 你的个人资料 / 口吻说明
-也就是 `persona.md`。
-
-至少写清：
-- 你是谁
-- 你主要写什么
-- 你的表达风格
-- 你的真实经历 / 判断
-- 你希望文末怎么引导读者
-
-### 2. 一篇参考内容，或者一组材料
-可以是：
-- 一篇参考文章
-- 一组笔记
-- 一份主题素材
-- 一段你想展开的判断
-
-### 3. 公众号发布配置
-你需要准备：
-- 微信公众号 `appid`
-- 微信公众号 `secret`
+这个包安装后提供 3 个 skill：
+- `wechat-publish-from-materials`（主入口：材料 → 文章）
+- `wechat-draft-publisher`（发布入口：Markdown → 草稿箱）
+- `wechat-illustrated-publisher`（插图链 + 发布链统一入口）
 
 ---
 
-## 你会得到什么
+## 先说最重要的一步：先选你的配图模式
 
-这套东西会帮你完成 4 件事：
+安装后第一件事，不是先看一堆参数，而是先选下面 3 种模式之一：
 
-1. 先整理出一篇适合你口吻的公众号正文
-2. 可选完成插图规划、真实生图与正文回填
-3. 做一次发布前检查（含配图状态）
-4. 把文章送进微信公众号草稿箱
+1. **纯文字发布（最快）**
+   - 不配图，只把内容整理好后推进草稿箱。
+2. **我自己提供图片**
+   - 你给封面/正文图，系统负责插入和发布检查。
+3. **AI 自动配图**
+   - 系统先做插图规划，再走生图链（默认 MiniMax，可切换 provider）。
+
+> 建议：第一次先走「纯文字发布」，跑通后再开配图。
 
 ---
 
-## 第一次接入：最短路径
+## 第一次接入（5 分钟）
 
-### 第 1 步：克隆仓库
+### 1) 克隆并安装
 
-你可以任选一个地址：
-
-#### Gitee
 ```bash
 git clone https://gitee.com/woipanda/openclaw-wechat-publishing-kit.git
 cd openclaw-wechat-publishing-kit
-```
-
-#### GitHub
-```bash
-git clone https://github.com/wopanda/openclaw-wechat-publishing-kit.git
-cd openclaw-wechat-publishing-kit
-```
-
-### 第 2 步：安装
-
-```bash
 bash install.sh
 ```
 
-安装完成后，这套内容会进入你的 OpenClaw skills 目录：
+### 2) 填你的 persona
 
-```bash
-~/.openclaw/skills/
-```
-
-默认只安装三部分：
-- `wechat-publish-from-materials`
-- `wechat-draft-publisher`
-- `wechat-illustrated-publisher`
-
-现在已补上一个可选插图支路：
-- 文章 -> 插图计划 -> （可选）生图 -> 合并正文 -> 草稿箱
-- 也可直接跑一条串联脚本：`run_illustrated_publish_flow.py`
-- 如果你想把它当成一个单独 skill 用，也可以直接走：`wechat-illustrated-publisher`
-
-### 第 3 步：改你的 persona
-
-安装后，去这里改：
+安装后编辑：
 
 ```bash
 ~/.openclaw/skills/wechat-publish-from-materials/user-templates/persona.md
 ```
 
-### 第 4 步：填公众号配置
+最少写清：你是谁、写什么、语气风格、你希望结尾怎么引导读者。
 
-```bash
-cd ~/.openclaw/skills/wechat-draft-publisher/config
-cp credentials.example.json credentials.json
-cp settings.example.json settings.json
-```
+### 3) 填公众号配置
 
-然后填入：
+安装脚本会自动在首次安装时创建以下文件（若不存在）：
+- `~/.openclaw/skills/wechat-draft-publisher/config/credentials.json`
+- `~/.openclaw/skills/wechat-draft-publisher/config/settings.json`
+
+你只需要补：
 - `appid`
 - `secret`
-- 作者名
-- 输出目录
+- `author`
 
-如果你想改公众号样式，也可以顺手改这两个：
-- `style_theme`
-- `accent_color`
-
-如果你想启用默认正文插图策略，也可改：
-- `default_body_images`（数组）
-- `max_body_images`（默认 1）
-- `body_image_placement`（推荐 `after-intro` 或 `before-ending`；兼容旧值 `after-first-h2` / `before-signature`）
-- `default_image_state`（`text-only` / `fallback-approved` 等）
-
-也可以理解成：
-- `style_theme` = 选一套整体风格
-- `accent_color` = 微调主色
-
-当前内置 3 套主题：
-- `wechat-pro`（默认绿色系）
-- `cyan-clean`（青蓝风）
-- `slate-blue`（蓝灰风）
-
-### 第 5 步：先做一次连通性检查
+### 4) 连通性检查
 
 ```bash
-cd ~/.openclaw/skills/wechat-draft-publisher
-python3 scripts/check_wechat_connection.py
+python3 ~/.openclaw/skills/wechat-draft-publisher/scripts/check_wechat_connection.py
 ```
 
-如果这里能过，说明你的发布入口基本通了。
+### 5) 直接用一句话开始
 
----
-
-## 一句话怎么用
-
-你可以直接对 OpenClaw 说：
-
+#### A. 纯文字发布
 ```text
-请读取我的 persona 和这篇参考内容，整理成公众号稿，并推送到公众号草稿箱。
+请按我的 persona，把这份材料整理成公众号文章，先不要配图，检查后推到草稿箱。
 ```
 
-或者：
-
+#### B. 我自己提供图片
 ```text
-请根据我的 persona，把这组材料整理成一篇适合发布到微信公众号的文章，然后送进草稿箱。
+请按我的 persona，把这份材料整理成公众号文章；封面和正文配图我自己提供，你帮我一起处理后推到草稿箱。
+```
+
+#### C. AI 自动配图
+```text
+请按我的 persona，把这份材料整理成公众号文章，并为合适段落生成插图方案与 AI 配图，检查后推到草稿箱。
 ```
 
 ---
 
-## 最常见的 3 种使用方式
+## 你会得到什么
 
-### 1. 我有一篇参考文章
-直接让它：
-- 读你的 persona
-- 吸收参考内容
-- 生成你的版本
-- 推到草稿箱
-
-### 2. 我有一组材料 / 笔记
-直接让它：
-- 先整理观点
-- 再生成正文
-- 再推草稿箱
-
-### 3. 我已经有 Markdown
-那你可以跳过前面的整理，直接用：
-- `wechat-draft-publisher`
-
-示例（加 1 张正文图）：
-```bash
-python3 ~/.openclaw/skills/wechat-draft-publisher/scripts/publish_markdown.py \
-  --check \
-  --file /path/to/article.md \
-  --cover-image /path/to/cover.jpg \
-  --body-image /path/to/body.jpg \
-  --body-image-placement after-intro \
-  --image-state article-specific
-```
-
-如果你已经有“结构化插图计划 + 已生图结果”，也可以直接：
-```bash
-python3 ~/.openclaw/skills/wechat-draft-publisher/scripts/publish_markdown.py \
-  --check \
-  --file /path/to/article.md \
-  --illustration-plan /path/to/illustration-plan.generated.json
-```
-
-如果你想一条命令跑完“生成 plan → 复用已有 generated plan / publisher check”，可用：
-```bash
-python3 ~/.openclaw/skills/wechat-publish-from-materials/scripts/run_illustrated_publish_flow.py \
-  --article /path/to/article.md \
-  --existing-generated-plan /path/to/illustration-plan.generated.json \
-  --publisher-check \
-  --publisher-config ~/.openclaw/skills/wechat-draft-publisher/config/settings.json
-```
+按模式不同，这套能力会帮你完成：
+- 材料整理成公众号正文
+- （可选）插图规划 + 图位 + prompt
+- （可选）真实生图并回填正文
+- 发布前检查（封面策略 / 配图状态 / next action）
+- 推送到微信公众号草稿箱
 
 ---
 
-## 保留了什么
+## 最常见问题
 
-### 封面能力还在
-支持：
-- `--cover-image`
-- `--thumb-media-id`
-- `default_thumb_media_id`
-- 自动封面策略
+### Q1：我必须先学插图链吗？
+不用。第一次建议先跑「纯文字发布」。
 
-### 正文插图能力已补齐
-支持：
-- `--body-image`（可重复）
-- `--body-image-placement` / `--illustration-placement`
-- `--max-body-images`
-- `--image-state`（article-specific / fallback-approved / text-only / blocked-by-image）
+### Q2：我已经有 Markdown，能直接发吗？
+可以，直接用 `wechat-draft-publisher`。
 
-### 公众号样式还在
-当前内置主题：
-- `wechat-pro`（默认）
-- `cyan-clean`
-- `slate-blue`
-
-在 `config/settings.json` 中可配置：
-
-```json
-{
-  "style_theme": "wechat-pro",
-  "accent_color": "#1f9d55"
-}
-```
+### Q3：AI 配图默认走什么？
+默认 MiniMax；可切换到即梦 / Seedream / Ark 兼容链。
 
 ---
 
-## 常见问题
+## 进阶文档
 
-### 1. 我到底要提供哪些信息？
-最少就是：
-- `persona.md`
-- 一篇参考内容或一组材料
-- 公众号 `appid / secret`
-
-### 2. 怎么知道有没有连上公众号？
-先跑：
-
-```bash
-python3 scripts/check_wechat_connection.py
-```
-
-### 3. 我已经有 Markdown，还要走前面那套吗？
-不用。  
-你可以直接把 Markdown 交给 `wechat-draft-publisher` 推草稿箱。
-
-### 4. 我能改公众号样式吗？
-可以。
-
-在 `settings.json` 里改：
-- `style_theme`
-- `accent_color`
-
-你可以这样理解：
-- `style_theme` = 先选整体风格
-- `accent_color` = 再微调主色
-
-当前内置主题：
-- `wechat-pro`（默认绿色系）
-- `cyan-clean`（青蓝风）
-- `slate-blue`（蓝灰风）
-
-例如：
-
-```json
-{
-  "style_theme": "cyan-clean",
-  "accent_color": "#2b6cb0"
-}
-```
+- 主入口 skill 说明：`skills/wechat-publish-from-materials/README.md`
+- 插图统一入口：`skills/wechat-illustrated-publisher/README.md`
+- 发布链细节：`skills/wechat-draft-publisher/SKILL.md`
 
 ---
 
 ## 安全说明
 
-- 不要把真实 `credentials.json` 提交到 git
-- 不要把真实 `settings.json` 提交到 git
-- 不要在 README、SKILL、示例里暴露 API Key / AppSecret
-
-
-## 新增：文章插图能力
-
-这套 kit 现在支持把“给文章配合适插图”拆成 3 步：
-
-1. 先为文章生成结构化插图计划
-2. 再按计划去生图（可 dry-run）
-3. 最后由 publisher 在发布前把多张正文插图合并进文章
-
-这样做的目的不是让 publisher 自己变成自动配图系统，而是让“插图”这件事变成可设计、可验证、可回填的上游步骤。
-
-当前默认真实生图桥已切到 **MiniMax 官方接口**：
-- 接口：`POST https://api.minimaxi.com/v1/image_generation`
-- 默认模型：`image-01`
-- 默认优先读取：`MINIMAX_API_KEY`
-- 若环境变量未提供，会回退读取 `~/.openclaw/openclaw.json` 中的 `models.providers.minimax.apiKey`
+- 不要把真实 `credentials.json` 提交到 git。
+- 不要把真实 `settings.json` 提交到 git。
+- 不要在 README / SKILL / 示例里暴露 API key 或 AppSecret。
