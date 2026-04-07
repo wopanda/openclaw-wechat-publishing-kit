@@ -113,6 +113,15 @@ python3 ~/.openclaw/skills/wechat-draft-publisher/scripts/check_wechat_connectio
 
 底层也兼容 Seedream / Ark 链，但第一次接入时，你先把它理解成：AI 配图 = MiniMax 或 Jimeng。
 
+### Q4：封面图和文末尾图是固定的吗？
+不是一回事：
+- **封面图默认不固定**，但发布时必须有一个可用封面来源
+- **文末尾图现在默认不固定**，需要你自己显式配置才会带上
+
+也就是说：
+- 封面不需要“写死固定”，但需要“最终有一个有效封面”
+- 如果既没有 `--cover-image`、也没有 `--thumb-media-id`、也没有插图计划封面、正文里也找不到可自动取封面的图片，微信发布大概率会失败
+
 ---
 
 ## 进阶文档

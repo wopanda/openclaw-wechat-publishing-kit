@@ -22,5 +22,5 @@
   },
   "style_theme": "wechat-pro",
   "accent_color": "#1f9d55",
-  "default_tail_image_path": "./assets/default-article-tail.jpg"
+  "default_tail_image_path": ""
 }
