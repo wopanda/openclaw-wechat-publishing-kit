@@ -18,7 +18,9 @@
 2. **我自己提供图片**
    - 你给封面/正文图，系统负责插入和发布检查。
 3. **AI 自动配图**
-   - 系统先做插图规划，再走生图链（默认 MiniMax，可切换 provider）。
+   - 这一步有两个明确选项：
+     - **MiniMax**（默认，开箱即用）
+     - **Jimeng / 即梦**（提供 Jimeng API key 后可切换）
 
 > 建议：第一次先走「纯文字发布」，跑通后再开配图。
 
@@ -73,9 +75,14 @@ python3 ~/.openclaw/skills/wechat-draft-publisher/scripts/check_wechat_connectio
 请按我的 persona，把这份材料整理成公众号文章；封面和正文配图我自己提供，你帮我一起处理后推到草稿箱。
 ```
 
-#### C. AI 自动配图
+#### C1. AI 自动配图（MiniMax）
 ```text
-请按我的 persona，把这份材料整理成公众号文章，并为合适段落生成插图方案与 AI 配图，检查后推到草稿箱。
+请按我的 persona，把这份材料整理成公众号文章，并使用 MiniMax 为合适段落生成插图方案与 AI 配图，检查后推到草稿箱。
+```
+
+#### C2. AI 自动配图（Jimeng / 即梦）
+```text
+请按我的 persona，把这份材料整理成公众号文章，并使用 Jimeng / 即梦为合适段落生成插图方案与 AI 配图；如果需要 Jimeng key，我会补给你。
 ```
 
 ---
@@ -99,8 +106,12 @@ python3 ~/.openclaw/skills/wechat-draft-publisher/scripts/check_wechat_connectio
 ### Q2：我已经有 Markdown，能直接发吗？
 可以，直接用 `wechat-draft-publisher`。
 
-### Q3：AI 配图默认走什么？
-默认 MiniMax；可切换到即梦 / Seedream / Ark 兼容链。
+### Q3：AI 配图有哪些选择？
+有两个一开始就该知道的入口：
+- **MiniMax**（默认）
+- **Jimeng / 即梦**（需要对应 API key）
+
+底层也兼容 Seedream / Ark 链，但第一次接入时，你先把它理解成：AI 配图 = MiniMax 或 Jimeng。
 
 ---
 
